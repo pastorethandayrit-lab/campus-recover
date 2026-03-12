@@ -1,0 +1,39 @@
+body {
+  font-family: 'Poppins', sans-serif;
+  margin: 0;
+  background: #fff;
+  color: #4a2c2a;
+}
+
+nav {
+  background: #f7c948;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+nav h1 { color: #4a2c2a; }
+nav ul { list-style: none; display: flex; gap: 1rem; }
+nav ul li a { text-decoration: none; color: #4a2c2a; font-weight: 600; }
+
+.hero { text-align: center; padding: 3rem 2rem; }
+.hero h2 { font-size: 2rem; color: #4a2c2a; }
+.hero p { max-width: 600px; margin: 1rem auto; color: #6b4f4f; }
+
+.search-bar input {
+  padding: 0.7rem; width: 300px; border: 2px solid #4a2c2a; border-radius: 5px;
+}
+.search-bar button {
+  padding: 0.7rem 1.2rem; margin-left: 0.5rem; background: #4a2c2a; color: #fff;
+  border: none; border-radius: 5px; cursor: pointer;
+}
+.search-bar button:hover { background: #2f1d1c; }
+
+.items { padding: 2rem; }
+.item-grid { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+
+.item-card {
+  background: #fff; border: 1px solid #ddd; border-radius: 8px; width: 200px;
+  text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.item-card img { width: 100%; border-bottom
