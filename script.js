@@ -44,14 +44,15 @@ window.claimItem = async (itemId, type) => {
   const { error } = await supabase.from("claims").insert([{
     item_id: itemId,
     claimer_id: session.user.id,
-    claimer_email: session.user.email
+    claimer_email: session.user.email,
+    status: 'pending'
   }]);
 
   if (error) alert("Error: " + error.message);
   else alert("Success! Your request has been sent to the dashboard.");
 };
 
-// 5. ADMIN DASHBOARD ACTIONS (New Actions for Claims)
+// 5. ADMIN DASHBOARD ACTIONS
 async function loadAdminDashboard() {
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   const { data: claims } = await supabase.from("claims").select("*, items(title)").order("created_at", { ascending: false });
@@ -69,7 +70,6 @@ async function loadAdminDashboard() {
         <td>${item.title}</td>
         <td><span class="status-tag ${item.status}">${item.status}</span></td>
         <td>${item.type}</td>
-        <td>${new Date(item.date).toLocaleDateString()}</td>
         <td>
           <button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>
           <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
@@ -77,23 +77,23 @@ async function loadAdminDashboard() {
       </tr>`).join("");
   }
 
-  // Claims List with Approve/Reject Actions
+  // Claims List with Allow/Reject
   const claimsList = document.getElementById("claimsList");
   if (claimsList && claims) {
     if (claims.length === 0) {
         claimsList.innerHTML = "<p>No active claim requests.</p>";
     } else {
         claimsList.innerHTML = claims.map(c => `
-          <div style="padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+          <div style="padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: white; margin-bottom: 5px; border-radius: 8px;">
             <div>
-              <strong style="color: #eab308;">${c.claimer_email}</strong> 
-              wants <strong>${c.items?.title || 'Unknown'}</strong>
-              <br><span class="status-tag ${c.status || 'pending'}" style="font-size: 10px;">${c.status || 'pending'}</span>
+              <strong style="color: #222;">${c.claimer_email}</strong> 
+              wants to claim <strong>${c.items?.title || 'Item'}</strong>
+              <br><span class="status-tag ${c.status || 'pending'}">${c.status || 'pending'}</span>
             </div>
-            <div>
-              <button onclick="window.updateClaimStatus('${c.id}', 'approved')" class="btn-approve" style="padding: 5px 10px; font-size: 12px;">Allow</button>
-              <button onclick="window.updateClaimStatus('${c.id}', 'rejected')" class="btn-reject" style="padding: 5px 10px; font-size: 12px;">Reject</button>
-              <button onclick="window.deleteClaim('${c.id}')" class="btn-delete" style="padding: 5px 10px; font-size: 12px;">Delete</button>
+            <div style="display: flex; gap: 5px;">
+              <button onclick="window.updateClaimStatus('${c.id}', 'approved')" class="btn-approve">Allow</button>
+              <button onclick="window.updateClaimStatus('${c.id}', 'rejected')" class="btn-reject" style="background: #f59e0b;">Reject</button>
+              <button onclick="window.deleteClaim('${c.id}')" class="btn-delete">Delete</button>
             </div>
           </div>
         `).join("");
@@ -101,33 +101,36 @@ async function loadAdminDashboard() {
   }
 }
 
-// Global functions for Admin
+// Global Admin Functions
 window.updateStatus = async (id, status) => {
   await supabase.from("items").update({ status }).eq("id", id);
   loadAdminDashboard();
 };
 
 window.deleteItem = async (id) => {
-  if (confirm("Delete this item permanently?")) {
+  if (confirm("Delete this report permanently?")) {
     await supabase.from("items").delete().eq("id", id);
     loadAdminDashboard();
   }
 };
 
 window.updateClaimStatus = async (id, status) => {
-  await supabase.from("claims").update({ status }).eq("id", id);
-  alert(`Claim marked as ${status}`);
-  loadAdminDashboard();
+  const { error } = await supabase.from("claims").update({ status }).eq("id", id);
+  if (error) alert(error.message);
+  else {
+    alert(`Claim ${status}!`);
+    loadAdminDashboard();
+  }
 };
 
 window.deleteClaim = async (id) => {
-  if (confirm("Delete this request?")) {
+  if (confirm("Delete this claim request?")) {
     await supabase.from("claims").delete().eq("id", id);
     loadAdminDashboard();
   }
 };
 
-// 6. UI RENDERING & INIT
+// 6. UI RENDERING
 function renderItems(items) {
   const container = document.getElementById("itemsContainer");
   if (!container) return;
@@ -137,7 +140,7 @@ function renderItems(items) {
       <div style="padding:15px;">
         <span class="badge ${item.type}">${item.type}</span>
         <h3 style="margin:10px 0;">${item.title}</h3>
-        <p style="color:#666; font-size:14px;">📍 ${item.location}</p>
+        <p>📍 ${item.location}</p>
         <button onclick="window.claimItem('${item.id}', '${item.type}')" class="btn-claim">
           ${item.type === 'found' ? 'Claim This Item' : 'I Found This!'}
         </button>
@@ -146,6 +149,7 @@ function renderItems(items) {
   `).join("");
 }
 
+// 7. INITIALIZE
 document.addEventListener("DOMContentLoaded", async () => {
   const { data: recent } = await supabase.from("items").select("*").eq("status", "approved").order("created_at", { ascending: false }).limit(6);
   if (recent) renderItems(recent);
@@ -181,7 +185,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           description: fields[3].value, location: fields[4].value, date: fields[5].value,
           status: 'pending', image_url: imageUrl, user_id: user.id 
         }]);
-        alert("Report submitted!");
+        alert("Report submitted! Waiting for approval.");
         window.location.href = "index.html";
       } catch (err) { alert(err.message); }
     });

@@ -12,7 +12,7 @@
     <ul>
       <li><a href="index.html">Home</a></li>
       <li><a href="upload.html">Report</a></li>
-      <li><a href="admin.html">Admin</a></li>
+      <li><a href="admin.html" class="active">Admin</a></li>
       <li><a href="login.html">Sign In</a></li>
       <li><a href="register.html">Register</a></li>
       <li><a href="profile.html">Profile</a></li>
@@ -20,42 +20,56 @@
   </nav>
 
   <section id="adminSection" style="display:none;" class="dashboard">
-    <h2>Admin Dashboard</h2>
-    
-    <div class="stats">
-      <div class="stat-card">
-        <h3>Total Items</h3>
-        <span id="totalItems">0</span>
+    <div class="container" style="padding: 2rem; max-width: 1200px; margin: 0 auto;">
+      <h2 style="margin-bottom: 2rem;">Admin Dashboard</h2>
+      
+      <div class="stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+        <div class="stat-card" style="background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center;">
+          <h3 style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">Total Items</h3>
+          <span id="totalItems" style="font-size: 2rem; font-weight: bold; color: #222;">0</span>
+        </div>
+        <div class="stat-card" style="background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center;">
+          <h3 style="font-size: 0.9rem; color: #ef4444; margin-bottom: 0.5rem;">Active Lost</h3>
+          <span id="activeLost" style="font-size: 2rem; font-weight: bold; color: #222;">0</span>
+        </div>
+        <div class="stat-card" style="background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center;">
+          <h3 style="font-size: 0.9rem; color: #22c55e; margin-bottom: 0.5rem;">Active Found</h3>
+          <span id="activeFound" style="font-size: 2rem; font-weight: bold; color: #222;">0</span>
+        </div>
       </div>
-      <div class="stat-card">
-        <h3>Active Lost</h3>
-        <span id="activeLost">0</span>
-      </div>
-      <div class="stat-card">
-        <h3>Active Found</h3>
-        <span id="activeFound">0</span>
-      </div>
-    </div>
 
-    <h3>Recent Reports</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th>Status</th>
-          <th>Type</th>
-          <th>Date</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="adminTableBody"></tbody>
-    </table>
-    <hr style="margin: 2rem 0; border: 1px solid #eee;">
-    
-    <h3>Claim Requests</h3>
-    <div id="claimsList" style="background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-      <p style="color: #666;">No active claim requests.</p>
+      <h3 style="margin-bottom: 1rem;">Recent Reports</h3>
+      <div style="background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 3rem;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+          <thead style="background: #f9fafb; border-bottom: 1px solid #eee;">
+            <tr>
+              <th style="padding: 1rem;">Item</th>
+              <th style="padding: 1rem;">Status</th>
+              <th style="padding: 1rem;">Type</th>
+              <th style="padding: 1rem;">Date</th>
+              <th style="padding: 1rem;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminTableBody">
+            </tbody>
+        </table>
+      </div>
+
+      <hr style="margin: 3rem 0; border: 0; border-top: 1px solid #eee;">
+      
+      <h3 style="margin-bottom: 1rem;">Claim Requests</h3>
+      <div id="claimsList" style="display: flex; flex-direction: column; gap: 10px;">
+        <p style="color: #666; background: white; padding: 2rem; border-radius: 12px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+          No active claim requests.
+        </p>
+        </div>
     </div>
+  </section>
+
+  <section id="accessDenied" style="text-align: center; padding: 5rem 2rem;">
+    <h2 style="color: #ef4444;">Access Denied</h2>
+    <p>You do not have permission to view the Admin Dashboard.</p>
+    <a href="index.html" style="color: #facc15; font-weight: bold; text-decoration: none;">Return Home</a>
   </section>
 
   <script type="module" src="script.js"></script>
