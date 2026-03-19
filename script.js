@@ -55,16 +55,18 @@ if (registerForm) {
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-      alert("Registration failed: " + error.message);
-    } else {
-      const userId = data.user?.id;
-      if (userId) {
-        await supabase.from("profiles").insert([{ id: userId, role: "user" }]);
-      }
-      alert("Registration successful! Check your email to confirm.");
-      // Optional redirect
-      window.location.href = "login.html";
-    }
+  alert("Registration failed: " + error.message);
+} else {
+  const userId = data.user?.id;
+  if (userId) {
+    await supabase.from("profiles").insert([{ id: userId, role: "user" }]);
+  }
+  alert("Registration successful! Check your email to confirm.");
+  setTimeout(() => {
+    window.location.href = "login.html";
+  }, 2000);
+}
+
   });
 }
 
