@@ -1,9 +1,9 @@
 // Supabase client
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-const SUPABASE_URL = "https://wdwvnojjjiodrtyrutgz.supabase.co";
-const SUPABASE_KEY = "sb_publishable_o5Ah6hay4s3LIFV0dRrQtA_gmQoMDlI";
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseUrl = "https://wdwvnojjjiodrtyrutgz.supabase.co";
+const supabaseKey = "sb_publishable_o5Ah6hay4s3LIFV0dRrQtA_gmQoMDlI";
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Cloudinary setup
 const cloudName = "daxarj70f"; // replace with your cloud name
