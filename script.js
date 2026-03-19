@@ -1,64 +1,123 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
+// 1. CONFIGURATION
 const supabaseUrl = "https://wdwvnojjjiodrtyrutgz.supabase.co";
 const supabaseKey = "sb_publishable_o5Ah6hay4s3LIFV0dRrQtA_gmQoMDlI";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// --- 1. AUTHENTICATION ---
+const cloudName = "daxarj70f"; 
+const uploadPreset = "unsigned_upload"; 
+
+// 2. IMAGE UPLOAD
+async function uploadImage(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", uploadPreset);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: "POST",
+    body: formData
+  });
+  if (!res.ok) throw new Error("Image upload failed.");
+  const data = await res.json();
+  return data.secure_url;
+}
+
+// 3. AUTHENTICATION
 async function handleAuth(e, type) {
   e.preventDefault();
   const email = e.target.querySelector("input[type=email]").value;
   const password = e.target.querySelector("input[type=password]").value;
   
-  const { data, error } = type === 'login' 
+  const { error } = type === 'login' 
     ? await supabase.auth.signInWithPassword({ email, password })
     : await supabase.auth.signUp({ email, password });
 
-  if (error) {
-    alert(error.message);
-  } else {
-    window.location.href = "index.html";
-  }
+  if (error) alert(error.message);
+  else window.location.href = "index.html";
 }
 
-// --- 2. DATA LOADING & UI ---
-async function initApp() {
+// 4. CLAIM INTERACTION (Now saves to DB)
+window.claimItem = async (itemId, type) => {
   const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { alert("Please sign in first!"); window.location.href = "login.html"; return; }
+
+  const { error } = await supabase.from("claims").insert([{
+    item_id: itemId,
+    claimer_id: session.user.id,
+    claimer_email: session.user.email
+  }]);
+
+  if (error) alert("Error: " + error.message);
+  else alert("Success! Your request has been sent to the dashboard.");
+};
+
+// 5. ADMIN DASHBOARD (Now shows claims)
+async function loadAdminDashboard() {
+  const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
+  const { data: claims } = await supabase.from("claims").select("*, items(title)");
+
+  // Stats
+  if(document.getElementById("totalItems")) document.getElementById("totalItems").textContent = items?.length || 0;
   
-  // Update Profile Page & Navbar
-  if (session) {
-    if (document.getElementById("userEmail")) document.getElementById("userEmail").textContent = session.user.email;
-    if (document.getElementById("avatarText")) document.getElementById("avatarText").textContent = session.user.email[0].toUpperCase();
-
-    // Fetch Role from Profiles Table
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
-    if (profile && document.getElementById("userRole")) {
-        document.getElementById("userRole").textContent = profile.role;
-    }
-
-    // Show Admin Section if Admin
-    if (document.getElementById("adminSection") && profile?.role === "admin") {
-      document.getElementById("adminSection").style.display = "block";
-      loadAdminDashboard();
-    }
+  // Items Table
+  const tableBody = document.getElementById("adminTableBody");
+  if (tableBody && items) {
+    tableBody.innerHTML = items.map(item => `
+      <tr>
+        <td>${item.title}</td>
+        <td><span class="status-tag ${item.status}">${item.status}</span></td>
+        <td>${item.type}</td>
+        <td>
+          <button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>
+          <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
+        </td>
+      </tr>`).join("");
   }
 
-  loadRecentItems();
+  // Claims List
+  const claimsList = document.getElementById("claimsList");
+  if (claimsList && claims) {
+    if (claims.length === 0) {
+        claimsList.innerHTML = "<p>No active claim requests.</p>";
+    } else {
+        claimsList.innerHTML = claims.map(c => `
+          <div style="padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong style="color: #facc15;">${c.claimer_email}</strong> 
+              is interested in <strong>${c.items?.title || 'Unknown Item'}</strong>
+            </div>
+            <span style="font-size: 12px; color: #999;">${new Date(c.created_at).toLocaleDateString()}</span>
+          </div>
+        `).join("");
+    }
+  }
 }
 
-// --- 3. ITEM RENDERING ---
+window.updateStatus = async (id, status) => {
+  await supabase.from("items").update({ status }).eq("id", id);
+  loadAdminDashboard();
+};
+
+window.deleteItem = async (id) => {
+  if (confirm("Delete permanently?")) {
+    await supabase.from("items").delete().eq("id", id);
+    loadAdminDashboard();
+  }
+};
+
+// 6. UI RENDERING
 function renderItems(items) {
   const container = document.getElementById("itemsContainer");
   if (!container) return;
-  
   container.innerHTML = items.map(item => `
     <div class="card">
-      <img src="${item.image_url || 'https://via.placeholder.com/300'}" style="width:100%; height:180px; object-fit:cover; border-radius:8px;">
-      <div style="margin-top:10px;">
+      <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover; border-radius:8px;">
+      <div style="padding:15px;">
         <span class="badge ${item.type}">${item.type}</span>
-        <h3>${item.title}</h3>
-        <p>📍 ${item.location}</p>
-        <button onclick="window.claimItem('${item.id}', '${item.type}')" class="btn-claim">
+        <h3 style="margin:10px 0;">${item.title}</h3>
+        <p style="color:#666; font-size:14px;">📍 ${item.location}</p>
+        <button onclick="window.claimItem('${item.id}', '${item.type}')" 
+                style="width:100%; padding:10px; margin-top:10px; background:#facc15; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
           ${item.type === 'found' ? 'Claim This Item' : 'I Found This!'}
         </button>
       </div>
@@ -66,30 +125,53 @@ function renderItems(items) {
   `).join("");
 }
 
-window.claimItem = async (itemId, type) => {
+// 7. INITIALIZE
+document.addEventListener("DOMContentLoaded", async () => {
+  // Load recent items for home page
+  const { data: recent } = await supabase.from("items").select("*").eq("status", "approved").order("created_at", { ascending: false }).limit(6);
+  if (recent) renderItems(recent);
+
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) { alert("Please sign in first!"); window.location.href = "login.html"; return; }
-  alert("Success! Request sent to the " + (type === 'found' ? 'finder' : 'owner') + ".");
-};
+  
+  if (session) {
+    if (document.getElementById("userEmail")) document.getElementById("userEmail").textContent = session.user.email;
+    if (document.getElementById("avatarText")) document.getElementById("avatarText").textContent = session.user.email[0].toUpperCase();
 
-async function loadRecentItems() {
-  const { data } = await supabase.from("items").select("*").eq("status", "approved").order("created_at", { ascending: false });
-  if (data) renderItems(data);
-}
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
+    if (document.getElementById("userRole")) document.getElementById("userRole").textContent = profile?.role || "User";
 
-// --- 4. EVENT LISTENERS ---
-document.addEventListener("DOMContentLoaded", () => {
-  initApp();
+    if (document.getElementById("adminSection") && profile?.role === "admin") {
+      document.getElementById("adminSection").style.display = "block";
+      loadAdminDashboard();
+    }
+  }
 
+  // Setup Form Listeners
   const loginForm = document.getElementById("loginForm");
   if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
 
   const regForm = document.getElementById("registerForm");
   if (regForm) regForm.addEventListener("submit", (e) => handleAuth(e, 'register'));
 
+  const upForm = document.getElementById("uploadForm");
+  if (upForm) {
+    upForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        const fields = e.target.querySelectorAll("input, select, textarea");
+        const { data: { user } } = await supabase.auth.getUser();
+        const imageUrl = await uploadImage(fields[6].files[0]);
+        await supabase.from("items").insert([{ 
+          type: fields[0].value, title: fields[1].value, category: fields[2].value, 
+          description: fields[3].value, location: fields[4].value, date: fields[5].value,
+          status: 'pending', image_url: imageUrl, user_id: user.id 
+        }]);
+        alert("Report submitted!");
+        window.location.href = "index.html";
+      } catch (err) { alert(err.message); }
+    });
+  }
+
   const logoutBtns = document.querySelectorAll("#logoutBtn");
-  logoutBtns.forEach(btn => btn.addEventListener("click", async () => {
-    await supabase.auth.signOut();
-    window.location.href = "login.html";
-  }));
+  logoutBtns.forEach(btn => btn.addEventListener("click", () => supabase.auth.signOut().then(() => window.location.href = "login.html")));
 });
