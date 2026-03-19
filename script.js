@@ -207,3 +207,90 @@ document.addEventListener("DOMContentLoaded", () => {
     if (document.getElementById("adminSection")) checkAdminAccess();
     if (document.getElementById("profileInfo")) loadProfile();
 });
+
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const supabaseUrl = "https://wdwvnojjjiodrtyrutgz.supabase.co";
+const supabaseKey = "sb_publishable_o5Ah6hay4s3LIFV0dRrQtA_gmQoMDlI";
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const cloudName = "daxarj70f"; 
+const uploadPreset = "unsigned_upload"; 
+
+// Cloudinary Upload Logic
+async function uploadImage(file) {
+  const formData = new FormData();
+  // Fixes "Invalid Key" by cleaning the filename
+  const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+  formData.append("file", file);
+  formData.append("upload_preset", uploadPreset);
+  formData.append("public_id", `campus_${Date.now()}_${cleanName}`);
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) throw new Error("Cloudinary setup error. Check if your preset is 'Unsigned'.");
+  const data = await res.json();
+  return data.secure_url;
+}
+
+// Main Upload Function
+async function uploadItem(title, description, type, category, location, date, file) {
+  try {
+    const imageUrl = await uploadImage(file);
+
+    const { error } = await supabase
+      .from("items")
+      .insert([{ 
+        title, 
+        description, 
+        type, 
+        category, 
+        location, 
+        date, 
+        image_url: imageUrl,
+        status: 'pending' 
+      }]);
+
+    if (error) throw error;
+    alert("Success! Item reported.");
+    window.location.href = "index.html";
+  } catch (err) {
+    alert("Error: " + err.message);
+  }
+}
+
+// Form Listener - Fixed to match your exact HTML structure
+const uploadForm = document.getElementById("uploadForm");
+if (uploadForm) {
+  uploadForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const selects = e.target.querySelectorAll("select");
+    const inputs = e.target.querySelectorAll("input");
+    
+    const type = selects[0].value;
+    const title = inputs[0].value;
+    const category = selects[1].value;
+    const description = e.target.querySelector("textarea").value;
+    const location = inputs[1].value;
+    const date = inputs[2].value;
+    const file = document.getElementById("itemImage").files[0];
+
+    await uploadItem(title, description, type, category, location, date, file);
+  });
+}
+
+// Authentication & Profile Logic
+const loginForm = document.getElementById("loginForm");
+if (loginForm) {
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = e.target.querySelectorAll("input")[0].value;
+    const password = e.target.querySelectorAll("input")[1].value;
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) alert(error.message);
+    else window.location.href = "index.html";
+  });
+}
