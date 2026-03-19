@@ -1,21 +1,47 @@
 // Supabase client
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = "https://qjyjffsqtgyoqaillpml.supabase.co";
-const SUPABASE_KEY = "sb_publishable_FUz2bxPQi4Wx2CTSFr-3uQ_ERHu-1I9";
+const SUPABASE_URL = "https://wdwvnojjjiodrtyrutgz.supabase.co";
+const SUPABASE_KEY = "sb_publishable_o5Ah6hay4s3LIFV0dRrQtA_gmQoMDlI";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Cloudinary setup
+const cloudName = "daxarj70f"; // replace with your cloud name
+const uploadPreset = "unsigned_upload"; // replace with your unsigned preset
 
 // Cloudinary upload
 async function uploadImage(file) {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("upload_preset", "YOUR_UPLOAD_PRESET"); // replace with your preset
-  const res = await fetch("https://api.cloudinary.com/v1_1/daxarj70f/image/upload", {
+  formData.append("upload_preset", uploadPreset);
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
     method: "POST",
     body: formData
   });
+
   const data = await res.json();
   return data.secure_url;
+}
+
+// Upload Item (Cloudinary + Supabase)
+async function uploadItem(name, description, status, file) {
+  try {
+    const imageUrl = await uploadImage(file);
+
+    const { error } = await supabase
+      .from("items")
+      .insert([{ name, description, status, image_url: imageUrl }]);
+
+    if (error) {
+      alert("Upload failed: " + error.message);
+    } else {
+      alert("Item uploaded successfully!");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Unexpected error during upload.");
+  }
 }
 
 // Register
@@ -29,8 +55,12 @@ if (registerForm) {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return alert("Registration failed: " + error.message);
 
+    const userId = data.user?.id;
+    if (userId) {
+      await supabase.from("profiles").insert([{ id: userId, role: "user" }]);
+    }
+
     alert("Registration successful! Check your email to confirm.");
-    await supabase.from("profiles").insert([{ id: data.user.id, role: "user" }]);
   });
 }
 
@@ -57,7 +87,7 @@ if (logoutBtn) {
   });
 }
 
-// Upload Item
+// Upload Form Listener
 const uploadForm = document.getElementById("uploadForm");
 if (uploadForm) {
   uploadForm.addEventListener("submit", async (e) => {
@@ -67,15 +97,7 @@ if (uploadForm) {
     const status = e.target.querySelector("select").value;
     const file = e.target.querySelector("#itemImage").files[0];
 
-    try {
-      const imageUrl = await uploadImage(file);
-      const { error } = await supabase.from("items").insert([{ name, description, status, image_url: imageUrl }]);
-      if (error) alert("Upload failed: " + error.message);
-      else alert("Item uploaded successfully!");
-    } catch (err) {
-      console.error(err);
-      alert("Unexpected error during upload.");
-    }
+    await uploadItem(name, description, status, file);
   });
 }
 
@@ -112,8 +134,8 @@ async function loadAdminItems() {
       <td>${item.description}</td>
       <td>${item.status}</td>
       <td>
-        <button onclick="updateStatus(${item.id}, 'approved')">Approve</button>
-        <button onclick="updateStatus(${item.id}, 'rejected')">Reject</button>
+        <button onclick="updateStatus('${item.id}', 'approved')">Approve</button>
+        <button onclick="updateStatus('${item.id}', 'rejected')">Reject</button>
       </td>
     </tr>`).join("");
 }

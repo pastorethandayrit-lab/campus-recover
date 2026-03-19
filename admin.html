@@ -3,29 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Campus-Recover | Admin</title>
+  <title>CampusRecover | Admin</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <nav>
-    <h1>Campus-Recover</h1>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <h1>CampusRecover</h1>
     <ul>
       <li><a href="index.html">Home</a></li>
-      <li><a href="upload.html">Upload Item</a></li>
+      <li><a href="upload.html">Report</a></li>
       <li><a href="admin.html">Admin</a></li>
-      <li><a href="login.html">Login</a></li>
+      <li><a href="login.html">Sign In</a></li>
       <li><a href="register.html">Register</a></li>
     </ul>
   </nav>
 
-  <section class="admin-section" id="adminSection" style="display:none;">
+  <!-- Dashboard -->
+  <section id="adminSection" style="display:none;" class="dashboard">
     <h2>Admin Dashboard</h2>
+    <div class="stats">
+      <div>Total Items: <span id="totalItems">0</span></div>
+      <div>Active Lost: <span id="activeLost">0</span></div>
+      <div>Active Found: <span id="activeFound">0</span></div>
+      <div>Success Rate: <span id="successRate">0%</span></div>
+    </div>
+
+    <h3>Recent Reports</h3>
     <table>
       <thead>
         <tr>
           <th>Item</th>
-          <th>Description</th>
           <th>Status</th>
+          <th>Reporter</th>
+          <th>Date</th>
           <th>Actions</th>
         </tr>
       </thead>
