@@ -36,7 +36,7 @@ async function handleAuth(e, type) {
   else window.location.href = "index.html";
 }
 
-// 4. CLAIM INTERACTION (Now saves to DB)
+// 4. CLAIM INTERACTION
 window.claimItem = async (itemId, type) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) { alert("Please sign in first!"); window.location.href = "login.html"; return; }
@@ -51,13 +51,15 @@ window.claimItem = async (itemId, type) => {
   else alert("Success! Your request has been sent to the dashboard.");
 };
 
-// 5. ADMIN DASHBOARD (Now shows claims)
+// 5. ADMIN DASHBOARD ACTIONS (New Actions for Claims)
 async function loadAdminDashboard() {
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
-  const { data: claims } = await supabase.from("claims").select("*, items(title)");
+  const { data: claims } = await supabase.from("claims").select("*, items(title)").order("created_at", { ascending: false });
 
-  // Stats
+  // Update Stats
   if(document.getElementById("totalItems")) document.getElementById("totalItems").textContent = items?.length || 0;
+  if(document.getElementById("activeLost")) document.getElementById("activeLost").textContent = items?.filter(i => i.type === 'lost').length || 0;
+  if(document.getElementById("activeFound")) document.getElementById("activeFound").textContent = items?.filter(i => i.type === 'found').length || 0;
   
   // Items Table
   const tableBody = document.getElementById("adminTableBody");
@@ -67,6 +69,7 @@ async function loadAdminDashboard() {
         <td>${item.title}</td>
         <td><span class="status-tag ${item.status}">${item.status}</span></td>
         <td>${item.type}</td>
+        <td>${new Date(item.date).toLocaleDateString()}</td>
         <td>
           <button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>
           <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
@@ -74,38 +77,57 @@ async function loadAdminDashboard() {
       </tr>`).join("");
   }
 
-  // Claims List
+  // Claims List with Approve/Reject Actions
   const claimsList = document.getElementById("claimsList");
   if (claimsList && claims) {
     if (claims.length === 0) {
         claimsList.innerHTML = "<p>No active claim requests.</p>";
     } else {
         claimsList.innerHTML = claims.map(c => `
-          <div style="padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+          <div style="padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <strong style="color: #facc15;">${c.claimer_email}</strong> 
-              is interested in <strong>${c.items?.title || 'Unknown Item'}</strong>
+              <strong style="color: #eab308;">${c.claimer_email}</strong> 
+              wants <strong>${c.items?.title || 'Unknown'}</strong>
+              <br><span class="status-tag ${c.status || 'pending'}" style="font-size: 10px;">${c.status || 'pending'}</span>
             </div>
-            <span style="font-size: 12px; color: #999;">${new Date(c.created_at).toLocaleDateString()}</span>
+            <div>
+              <button onclick="window.updateClaimStatus('${c.id}', 'approved')" class="btn-approve" style="padding: 5px 10px; font-size: 12px;">Allow</button>
+              <button onclick="window.updateClaimStatus('${c.id}', 'rejected')" class="btn-reject" style="padding: 5px 10px; font-size: 12px;">Reject</button>
+              <button onclick="window.deleteClaim('${c.id}')" class="btn-delete" style="padding: 5px 10px; font-size: 12px;">Delete</button>
+            </div>
           </div>
         `).join("");
     }
   }
 }
 
+// Global functions for Admin
 window.updateStatus = async (id, status) => {
   await supabase.from("items").update({ status }).eq("id", id);
   loadAdminDashboard();
 };
 
 window.deleteItem = async (id) => {
-  if (confirm("Delete permanently?")) {
+  if (confirm("Delete this item permanently?")) {
     await supabase.from("items").delete().eq("id", id);
     loadAdminDashboard();
   }
 };
 
-// 6. UI RENDERING
+window.updateClaimStatus = async (id, status) => {
+  await supabase.from("claims").update({ status }).eq("id", id);
+  alert(`Claim marked as ${status}`);
+  loadAdminDashboard();
+};
+
+window.deleteClaim = async (id) => {
+  if (confirm("Delete this request?")) {
+    await supabase.from("claims").delete().eq("id", id);
+    loadAdminDashboard();
+  }
+};
+
+// 6. UI RENDERING & INIT
 function renderItems(items) {
   const container = document.getElementById("itemsContainer");
   if (!container) return;
@@ -116,8 +138,7 @@ function renderItems(items) {
         <span class="badge ${item.type}">${item.type}</span>
         <h3 style="margin:10px 0;">${item.title}</h3>
         <p style="color:#666; font-size:14px;">📍 ${item.location}</p>
-        <button onclick="window.claimItem('${item.id}', '${item.type}')" 
-                style="width:100%; padding:10px; margin-top:10px; background:#facc15; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
+        <button onclick="window.claimItem('${item.id}', '${item.type}')" class="btn-claim">
           ${item.type === 'found' ? 'Claim This Item' : 'I Found This!'}
         </button>
       </div>
@@ -125,14 +146,11 @@ function renderItems(items) {
   `).join("");
 }
 
-// 7. INITIALIZE
 document.addEventListener("DOMContentLoaded", async () => {
-  // Load recent items for home page
   const { data: recent } = await supabase.from("items").select("*").eq("status", "approved").order("created_at", { ascending: false }).limit(6);
   if (recent) renderItems(recent);
 
   const { data: { session } } = await supabase.auth.getSession();
-  
   if (session) {
     if (document.getElementById("userEmail")) document.getElementById("userEmail").textContent = session.user.email;
     if (document.getElementById("avatarText")) document.getElementById("avatarText").textContent = session.user.email[0].toUpperCase();
@@ -146,13 +164,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Setup Form Listeners
-  const loginForm = document.getElementById("loginForm");
-  if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
-
-  const regForm = document.getElementById("registerForm");
-  if (regForm) regForm.addEventListener("submit", (e) => handleAuth(e, 'register'));
-
+  // Form Listeners
+  if (document.getElementById("loginForm")) document.getElementById("loginForm").addEventListener("submit", (e) => handleAuth(e, 'login'));
+  if (document.getElementById("registerForm")) document.getElementById("registerForm").addEventListener("submit", (e) => handleAuth(e, 'register'));
+  
   const upForm = document.getElementById("uploadForm");
   if (upForm) {
     upForm.addEventListener("submit", async (e) => {
@@ -172,6 +187,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  const logoutBtns = document.querySelectorAll("#logoutBtn");
-  logoutBtns.forEach(btn => btn.addEventListener("click", () => supabase.auth.signOut().then(() => window.location.href = "login.html")));
+  document.querySelectorAll("#logoutBtn").forEach(btn => btn.addEventListener("click", () => supabase.auth.signOut().then(() => window.location.href = "login.html")));
 });
