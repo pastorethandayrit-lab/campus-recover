@@ -6,13 +6,19 @@ const supabaseKey = "sb_publishable_o5Ah6hay4s3LIFV0dRrQtA_gmQoMDlI";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Cloudinary setup
-const cloudName = "daxarj70f"; // replace with your cloud name
-const uploadPreset = "unsigned_upload"; // replace with your unsigned preset
+const cloudName = "daxarj70f"; 
+const uploadPreset = "unsigned_upload"; 
 
-// Cloudinary upload
+// Cloudinary upload with Filename Cleaning
 async function uploadImage(file) {
   const formData = new FormData();
-  formData.append("file", file);
+  
+  // Clean filename: removes special characters/spaces that cause "Invalid Key" errors
+  const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+  const blob = file.slice(0, file.size, file.type);
+  const newFile = new File([blob], cleanName, {type: file.type});
+
+  formData.append("file", newFile);
   formData.append("upload_preset", uploadPreset);
 
   const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
@@ -20,24 +26,29 @@ async function uploadImage(file) {
     body: formData
   });
 
+  if (!res.ok) throw new Error("Cloudinary upload failed. Check your Preset settings.");
+  
   const data = await res.json();
   return data.secure_url;
 }
 
 // Upload Item (Cloudinary + Supabase)
-async function uploadItem(name, description, status, file) {
-  try {
- async function uploadItem(title, description, status, file) {
+async function uploadItem(title, description, type, category, location, date, file) {
   try {
     const imageUrl = await uploadImage(file);
 
-    // Make sure these column names match exactly what is in your Supabase Table
+    // INSERTING INTO SUPABASE
+    // Note: Column names must match your Supabase Table exactly
     const { error } = await supabase
       .from("items")
       .insert([{ 
         title: title, 
         description: description, 
-        status: 'pending', // Usually default to pending
+        type: type,
+        category: category,
+        location: location,
+        date: date,
+        status: 'pending', // Default status for new reports
         image_url: imageUrl 
       }]);
 
@@ -45,11 +56,11 @@ async function uploadItem(name, description, status, file) {
       alert("Database error: " + error.message);
     } else {
       alert("Item reported successfully!");
-      window.location.href = "index.html"; // Redirect after success
+      window.location.href = "index.html"; 
     }
   } catch (err) {
     console.error(err);
-    alert("Cloudinary upload failed. Check your Cloud Name and Preset.");
+    alert("Error: " + err.message);
   }
 }
 
@@ -64,21 +75,17 @@ if (registerForm) {
     const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-  alert("Registration failed: " + error.message);
-} else {
-  const userId = data.user?.id;
-  if (userId) {
-    await supabase.from("profiles").insert([{ id: userId, role: "user" }]);
-  }
-  alert("Registration successful! Check your email to confirm.");
-  setTimeout(() => {
-    window.location.href = "login.html";
-  }, 2000);
-}
-
+      alert("Registration failed: " + error.message);
+    } else {
+      const userId = data.user?.id;
+      if (userId) {
+        await supabase.from("profiles").insert([{ id: userId, role: "user" }]);
+      }
+      alert("Registration successful! Check your email to confirm.");
+      setTimeout(() => { window.location.href = "login.html"; }, 2000);
+    }
   });
 }
-
 
 // Login
 const loginForm = document.getElementById("loginForm");
@@ -90,7 +97,10 @@ if (loginForm) {
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) alert("Login failed: " + error.message);
-    else alert("Login successful!");
+    else {
+        alert("Login successful!");
+        window.location.href = "index.html";
+    }
   });
 }
 
@@ -100,27 +110,32 @@ if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {
     await supabase.auth.signOut();
     alert("Logged out successfully!");
+    window.location.reload();
   });
 }
 
-// Upload Form Listener
+// Upload Form Listener (Matches your upload.html structure)
 const uploadForm = document.getElementById("uploadForm");
 if (uploadForm) {
   uploadForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const name = e.target.querySelector("input[type=text]").value;
+    
+    const type = e.target.querySelectorAll("select")[0].value;
+    const title = e.target.querySelector("input[type=text]").value;
+    const category = e.target.querySelectorAll("select")[1].value;
     const description = e.target.querySelector("textarea").value;
-    const status = e.target.querySelector("select").value;
+    const location = e.target.querySelectorAll("input[type=text]")[1].value;
+    const date = e.target.querySelector("input[type=date]").value;
     const file = e.target.querySelector("#itemImage").files[0];
 
-    await uploadItem(name, description, status, file);
+    await uploadItem(title, description, type, category, location, date, file);
   });
 }
 
-// Admin Dashboard
+// Admin Dashboard Logic
 async function checkAdminAccess() {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return alert("You must be logged in.");
+  if (!session) return;
 
   const { data, error } = await supabase
     .from("profiles")
@@ -131,10 +146,11 @@ async function checkAdminAccess() {
   if (error) return console.error(error);
 
   if (data.role === "admin") {
-    document.getElementById("adminSection").style.display = "block";
-    loadAdminItems();
-  } else {
-    alert("Access denied. Admins only.");
+    const adminSection = document.getElementById("adminSection");
+    if (adminSection) {
+        adminSection.style.display = "block";
+        loadAdminItems();
+    }
   }
 }
 
@@ -142,13 +158,15 @@ async function loadAdminItems() {
   const { data, error } = await supabase.from("items").select("*");
   if (error) return console.error(error);
 
-  const table = document.getElementById("adminTable");
-  if (!table) return;
-  table.innerHTML = data.map(item => `
+  const tableBody = document.querySelector("#adminSection table tbody");
+  if (!tableBody) return;
+
+  tableBody.innerHTML = data.map(item => `
     <tr>
-      <td>${item.name}</td>
-      <td>${item.description}</td>
+      <td>${item.title}</td>
       <td>${item.status}</td>
+      <td>${item.type}</td>
+      <td>${item.date}</td>
       <td>
         <button onclick="updateStatus('${item.id}', 'approved')">Approve</button>
         <button onclick="updateStatus('${item.id}', 'rejected')">Reject</button>
@@ -156,50 +174,36 @@ async function loadAdminItems() {
     </tr>`).join("");
 }
 
-async function updateStatus(id, status) {
-  await supabase.from("items").update({ status }).eq("id", id);
-  loadAdminItems();
-}
+// Global function for buttons
+window.updateStatus = async (id, status) => {
+  const { error } = await supabase.from("items").update({ status }).eq("id", id);
+  if (error) alert(error.message);
+  else loadAdminItems();
+};
 
-// Run admin check if admin.html is loaded
-if (document.getElementById("adminSection")) {
-  checkAdminAccess();
-}
-
-// Profile Page
+// Profile Page Loader
 async function loadProfile() {
   const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
 
-  if (!session) {
-    // Not logged in → show N/A everywhere
-    document.getElementById("userEmail").textContent = "N/A";
-    document.getElementById("userRole").textContent = "N/A";
-    document.getElementById("avatarText").textContent = "N/A";
-    return;
-  }
+  const userEmail = document.getElementById("userEmail");
+  const avatarText = document.getElementById("avatarText");
+  const userRole = document.getElementById("userRole");
 
-  // Logged in → show email
-  document.getElementById("userEmail").textContent = session.user.email;
+  if (userEmail) userEmail.textContent = session.user.email;
+  if (avatarText) avatarText.textContent = session.user.email.charAt(0).toUpperCase();
 
-  // Show initials in avatar circle
-  const initials = session.user.email.charAt(0).toUpperCase();
-  document.getElementById("avatarText").textContent = initials;
-
-  // Fetch role from profiles table
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", session.user.id)
     .single();
 
-  if (error || !data) {
-    document.getElementById("userRole").textContent = "N/A";
-  } else {
-    document.getElementById("userRole").textContent = data.role;
-  }
+  if (userRole && data) userRole.textContent = data.role;
 }
 
-// Run profile loader if profile.html is open
-if (document.getElementById("profileInfo")) {
-  loadProfile();
-}
+// Initialize based on page content
+document.addEventListener("DOMContentLoaded", () => {
+    if (document.getElementById("adminSection")) checkAdminAccess();
+    if (document.getElementById("profileInfo")) loadProfile();
+});
