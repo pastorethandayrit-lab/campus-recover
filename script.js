@@ -1,5 +1,5 @@
 // Supabase client
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const SUPABASE_URL = "https://wdwvnojjjiodrtyrutgz.supabase.co";
 const SUPABASE_KEY = "sb_publishable_o5Ah6hay4s3LIFV0dRrQtA_gmQoMDlI";
