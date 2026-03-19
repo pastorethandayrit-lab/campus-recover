@@ -21,7 +21,7 @@ async function uploadImage(file) {
     method: "POST",
     body: formData
   });
-  if (!res.ok) throw new Error("Cloudinary upload failed.");
+  if (!res.ok) throw new Error("Cloudinary upload failed. Check your 'Unsigned' preset.");
   const data = await res.json();
   return data.secure_url;
 }
@@ -42,71 +42,55 @@ async function uploadItem(title, description, type, category, location, date, fi
   }
 }
 
-// 4. FORM EVENT LISTENERS
-const uploadForm = document.getElementById("uploadForm");
-if (uploadForm) {
-  uploadForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const type = e.target.querySelectorAll("select")[0].value;
-    const title = e.target.querySelector("input[type=text]").value;
-    const category = e.target.querySelectorAll("select")[1].value;
-    const description = e.target.querySelector("textarea").value;
-    const location = e.target.querySelectorAll("input[type=text]")[1].value;
-    const date = e.target.querySelector("input[type=date]").value;
-    const file = e.target.querySelector("#itemImage").files[0];
-    await uploadItem(title, description, type, category, location, date, file);
-  });
-}
-
-// 5. SEARCH LOGIC
-const searchBtn = document.getElementById("searchBtn");
-if (searchBtn) {
-  searchBtn.addEventListener("click", async () => {
-    const searchTerm = document.getElementById("searchInput").value;
-    const { data } = await supabase.from("items").select("*").ilike("title", `%${searchTerm}%`);
-    renderItems(data || []);
-  });
-}
-
-// 6. HOMEPAGE LOADER
-async function loadRecentItems() {
-  const container = document.getElementById("itemsContainer");
-  if (!container) return;
-  const { data } = await supabase.from("items").select("*").eq("status", "approved").order("created_at", { ascending: false }).limit(6);
-  renderItems(data || []);
-}
-
+// 4. HOME PAGE & SEARCH RENDERER
 function renderItems(items) {
   const container = document.getElementById("itemsContainer");
   if (!container) return;
   if (items.length === 0) {
-    container.innerHTML = "<p>No items found.</p>";
+    container.innerHTML = "<p style='text-align:center; width:100%;'>No items found.</p>";
     return;
   }
   container.innerHTML = items.map(item => `
     <div class="card">
-      <img src="${item.image_url}" style="width:100%; height:180px; object-fit:cover; border-radius:8px;">
-      <div style="padding:10px;">
-        <span class="badge ${item.type}">${item.type}</span>
-        <h3>${item.title}</h3>
-        <p>${item.location}</p>
+      <img src="${item.image_url || 'https://via.placeholder.com/300'}" style="width:100%; height:200px; object-fit:cover; border-radius:8px;">
+      <div style="padding:15px;">
+        <span class="badge ${item.type}" style="text-transform:uppercase; font-weight:bold; font-size:12px;">${item.type}</span>
+        <h3 style="margin:10px 0;">${item.title}</h3>
+        <p style="color:#666; font-size:14px;">📍 ${item.location}</p>
+        <p style="font-size:12px; color:#999;">${new Date(item.date).toLocaleDateString()}</p>
       </div>
     </div>
   `).join("");
 }
 
-// 7. ADMIN ACTIONS & STATS (NEW)
+// 5. DATA LOADERS
+async function loadRecentItems() {
+  const container = document.getElementById("itemsContainer");
+  if (!container) return;
+
+  // Change this to .select("*") if you want to see items BEFORE admin approval
+  const { data, error } = await supabase
+    .from("items")
+    .select("*")
+    .eq("status", "approved") 
+    .order("created_at", { ascending: false })
+    .limit(6);
+
+  if (data) renderItems(data);
+}
+
+// 6. ADMIN DASHBOARD LOGIC
 async function loadAdminDashboard() {
   const { data: items, error } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   if (error) return;
 
-  // Update Stats Cards
-  document.getElementById("totalItems").textContent = items.length;
-  document.getElementById("activeLost").textContent = items.filter(i => i.type === 'lost').length;
-  document.getElementById("activeFound").textContent = items.filter(i => i.type === 'found').length;
+  // Stats
+  if(document.getElementById("totalItems")) document.getElementById("totalItems").textContent = items.length;
+  if(document.getElementById("activeLost")) document.getElementById("activeLost").textContent = items.filter(i => i.type === 'lost').length;
+  if(document.getElementById("activeFound")) document.getElementById("activeFound").textContent = items.filter(i => i.type === 'found').length;
   
-  // Render Admin Table
-  const tableBody = document.querySelector("#adminSection table tbody");
+  // Table Body
+  const tableBody = document.getElementById("adminTableBody");
   if (tableBody) {
     tableBody.innerHTML = items.map(item => `
       <tr>
@@ -123,7 +107,7 @@ async function loadAdminDashboard() {
   }
 }
 
-// Global functions for Admin Buttons
+// 7. GLOBAL ADMIN ACTIONS
 window.updateStatus = async (id, status) => {
   const { error } = await supabase.from("items").update({ status }).eq("id", id);
   if (error) alert(error.message);
@@ -131,31 +115,61 @@ window.updateStatus = async (id, status) => {
 };
 
 window.deleteItem = async (id) => {
-  if (confirm("Are you sure you want to delete this report?")) {
+  if (confirm("Delete this report permanently?")) {
     const { error } = await supabase.from("items").delete().eq("id", id);
     if (error) alert(error.message);
     else loadAdminDashboard();
   }
 };
 
-// 8. AUTH & PROFILE
-async function checkAccess() {
+// 8. EVENT LISTENERS
+document.addEventListener("DOMContentLoaded", async () => {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return;
+  
+  // Load Home Data
+  loadRecentItems();
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
-
-  const adminSection = document.getElementById("adminSection");
-  if (adminSection && profile?.role === "admin") {
-    adminSection.style.display = "block";
-    loadAdminDashboard();
+  // Load Admin/Profile Data
+  if (session) {
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
+    
+    if (document.getElementById("adminSection") && profile?.role === "admin") {
+      document.getElementById("adminSection").style.display = "block";
+      loadAdminDashboard();
+    }
+    
+    if (document.getElementById("userEmail")) {
+      document.getElementById("userEmail").textContent = session.user.email;
+      document.getElementById("userRole").textContent = profile?.role || "user";
+      document.getElementById("avatarText").textContent = session.user.email[0].toUpperCase();
+    }
   }
+});
 
-  if (document.getElementById("userEmail")) {
-    document.getElementById("userEmail").textContent = session.user.email;
-    document.getElementById("userRole").textContent = profile?.role || "user";
-    document.getElementById("avatarText").textContent = session.user.email[0].toUpperCase();
-  }
+// Search
+const searchBtn = document.getElementById("searchBtn");
+if (searchBtn) {
+  searchBtn.addEventListener("click", async () => {
+    const term = document.getElementById("searchInput").value;
+    const { data } = await supabase.from("items").select("*").ilike("title", `%${term}%`);
+    renderItems(data || []);
+  });
+}
+
+// Upload Form
+const uploadForm = document.getElementById("uploadForm");
+if (uploadForm) {
+  uploadForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const type = e.target.querySelectorAll("select")[0].value;
+    const title = e.target.querySelector("input[type=text]").value;
+    const category = e.target.querySelectorAll("select")[1].value;
+    const description = e.target.querySelector("textarea").value;
+    const location = e.target.querySelectorAll("input[type=text]")[1].value;
+    const date = e.target.querySelector("input[type=date]").value;
+    const file = e.target.querySelector("#itemImage").files[0];
+    await uploadItem(title, description, type, category, location, date, file);
+  });
 }
 
 // Auth Forms
@@ -178,9 +192,3 @@ if (logoutBtn) {
     window.location.href = "login.html";
   });
 }
-
-// 9. INIT
-document.addEventListener("DOMContentLoaded", () => {
-  checkAccess();
-  loadRecentItems();
-});
