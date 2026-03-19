@@ -302,3 +302,19 @@ button.secondary {
   font-weight: bold;
   color: #facc15; /* Matching your yellow theme */
 }
+
+.btn-claim {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  background-color: #facc15; /* Campus yellow */
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.btn-claim:hover {
+  background-color: #eab308;
+}
