@@ -154,3 +154,41 @@ async function updateStatus(id, status) {
 if (document.getElementById("adminSection")) {
   checkAdminAccess();
 }
+
+// Profile Page
+async function loadProfile() {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    // Not logged in → show N/A everywhere
+    document.getElementById("userEmail").textContent = "N/A";
+    document.getElementById("userRole").textContent = "N/A";
+    document.getElementById("avatarText").textContent = "N/A";
+    return;
+  }
+
+  // Logged in → show email
+  document.getElementById("userEmail").textContent = session.user.email;
+
+  // Show initials in avatar circle
+  const initials = session.user.email.charAt(0).toUpperCase();
+  document.getElementById("avatarText").textContent = initials;
+
+  // Fetch role from profiles table
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", session.user.id)
+    .single();
+
+  if (error || !data) {
+    document.getElementById("userRole").textContent = "N/A";
+  } else {
+    document.getElementById("userRole").textContent = data.role;
+  }
+}
+
+// Run profile loader if profile.html is open
+if (document.getElementById("profileInfo")) {
+  loadProfile();
+}

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampusRecover | Profile</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <h1>CampusRecover</h1>
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="upload.html">Report</a></li>
+      <li><a href="admin.html">Admin</a></li>
+      <li><a href="login.html">Sign In</a></li>
+      <li><a href="register.html">Register</a></li>
+      <li><a href="profile.html" class="active">Profile</a></li>
+    </ul>
+  </nav>
+
+  <!-- Profile Card -->
+  <section class="form-section">
+    <div class="profile-card">
+      <!-- Avatar Circle -->
+      <div class="profile-avatar">
+        <span id="avatarText">N/A</span>
+      </div>
+
+      <h2>Your Profile</h2>
+      <div class="profile-info" id="profileInfo">
+        <p><strong>Email:</strong> <span id="userEmail">N/A</span></p>
+        <p><strong>Role:</strong> <span id="userRole">N/A</span></p>
+      </div>
+      <button id="logoutBtn" class="secondary">Logout</button>
+    </div>
+  </section>
+
+  <script src="script.js"></script>
+</body>
+</html>
