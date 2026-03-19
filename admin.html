@@ -7,28 +7,34 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Navbar -->
-<nav class="navbar">
-  <h1>CampusRecover</h1>
-  <ul>
-    <li><a href="index.html">Home</a></li>
-    <li><a href="upload.html">Report</a></li>
-    <li><a href="admin.html">Admin</a></li>
-    <li><a href="login.html">Sign In</a></li>
-    <li><a href="register.html">Register</a></li>
-    <li><a href="profile.html">Profile</a></li>
-  </ul>
-</nav>
+  <nav class="navbar">
+    <h1>CampusRecover</h1>
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="upload.html">Report</a></li>
+      <li><a href="admin.html">Admin</a></li>
+      <li><a href="login.html">Sign In</a></li>
+      <li><a href="register.html">Register</a></li>
+      <li><a href="profile.html">Profile</a></li>
+    </ul>
+  </nav>
 
-
-  <!-- Dashboard -->
   <section id="adminSection" style="display:none;" class="dashboard">
     <h2>Admin Dashboard</h2>
+    
     <div class="stats">
-      <div>Total Items: <span id="totalItems">0</span></div>
-      <div>Active Lost: <span id="activeLost">0</span></div>
-      <div>Active Found: <span id="activeFound">0</span></div>
-      <div>Success Rate: <span id="successRate">0%</span></div>
+      <div class="stat-card">
+        <h3>Total Items</h3>
+        <span id="totalItems">0</span>
+      </div>
+      <div class="stat-card">
+        <h3>Active Lost</h3>
+        <span id="activeLost">0</span>
+      </div>
+      <div class="stat-card">
+        <h3>Active Found</h3>
+        <span id="activeFound">0</span>
+      </div>
     </div>
 
     <h3>Recent Reports</h3>
@@ -37,14 +43,15 @@
         <tr>
           <th>Item</th>
           <th>Status</th>
-          <th>Reporter</th>
+          <th>Type</th>
           <th>Date</th>
           <th>Actions</th>
         </tr>
       </thead>
-      <tbody id="adminTable"></tbody>
+      <tbody id="adminTableBody"></tbody>
     </table>
   </section>
+
+  <script type="module" src="script.js"></script>
 </body>
-<script type="module" src="script.js"></script>
 </html>

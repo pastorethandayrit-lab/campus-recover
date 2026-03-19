@@ -11,12 +11,9 @@ const uploadPreset = "unsigned_upload";
 // 2. CLOUDINARY UPLOAD LOGIC
 async function uploadImage(file) {
   const formData = new FormData();
-  
-  // Clean filename to prevent Supabase/Cloudinary key errors
   const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
   const blob = file.slice(0, file.size, file.type);
   const newFile = new File([blob], cleanName, {type: file.type});
-
   formData.append("file", newFile);
   formData.append("upload_preset", uploadPreset);
 
@@ -24,40 +21,24 @@ async function uploadImage(file) {
     method: "POST",
     body: formData
   });
-
-  if (!res.ok) throw new Error("Cloudinary upload failed. Ensure your preset is 'Unsigned' in settings.");
-  
+  if (!res.ok) throw new Error("Cloudinary upload failed.");
   const data = await res.json();
   return data.secure_url;
 }
 
-// 3. MAIN UPLOAD FUNCTION (Fixed Column Names)
+// 3. MAIN UPLOAD FUNCTION
 async function uploadItem(title, description, type, category, location, date, file) {
   try {
     const imageUrl = await uploadImage(file);
-
-    const { error } = await supabase
-      .from("items")
-      .insert([{ 
-        title: title,        // FIXED: matches your database column
-        description: description, 
-        type: type,
-        category: category,
-        location: location,
-        date: date,
-        status: 'pending', 
-        image_url: imageUrl 
-      }]);
-
-    if (error) {
-      alert("Database error: " + error.message);
-    } else {
-      alert("Item reported successfully!");
-      window.location.href = "index.html"; 
-    }
+    const { error } = await supabase.from("items").insert([{ 
+      title, description, type, category, location, date,
+      status: 'pending', image_url: imageUrl 
+    }]);
+    if (error) throw error;
+    alert("Item reported successfully!");
+    window.location.href = "index.html";
   } catch (err) {
-    console.error(err);
-    alert(err.message);
+    alert("Upload Error: " + err.message);
   }
 }
 
@@ -66,8 +47,6 @@ const uploadForm = document.getElementById("uploadForm");
 if (uploadForm) {
   uploadForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    
-    // Grabbing data based on your specific HTML structure
     const type = e.target.querySelectorAll("select")[0].value;
     const title = e.target.querySelector("input[type=text]").value;
     const category = e.target.querySelectorAll("select")[1].value;
@@ -75,12 +54,111 @@ if (uploadForm) {
     const location = e.target.querySelectorAll("input[type=text]")[1].value;
     const date = e.target.querySelector("input[type=date]").value;
     const file = e.target.querySelector("#itemImage").files[0];
-
     await uploadItem(title, description, type, category, location, date, file);
   });
 }
 
-// 5. AUTHENTICATION (Login/Register/Logout)
+// 5. SEARCH LOGIC
+const searchBtn = document.getElementById("searchBtn");
+if (searchBtn) {
+  searchBtn.addEventListener("click", async () => {
+    const searchTerm = document.getElementById("searchInput").value;
+    const { data } = await supabase.from("items").select("*").ilike("title", `%${searchTerm}%`);
+    renderItems(data || []);
+  });
+}
+
+// 6. HOMEPAGE LOADER
+async function loadRecentItems() {
+  const container = document.getElementById("itemsContainer");
+  if (!container) return;
+  const { data } = await supabase.from("items").select("*").eq("status", "approved").order("created_at", { ascending: false }).limit(6);
+  renderItems(data || []);
+}
+
+function renderItems(items) {
+  const container = document.getElementById("itemsContainer");
+  if (!container) return;
+  if (items.length === 0) {
+    container.innerHTML = "<p>No items found.</p>";
+    return;
+  }
+  container.innerHTML = items.map(item => `
+    <div class="card">
+      <img src="${item.image_url}" style="width:100%; height:180px; object-fit:cover; border-radius:8px;">
+      <div style="padding:10px;">
+        <span class="badge ${item.type}">${item.type}</span>
+        <h3>${item.title}</h3>
+        <p>${item.location}</p>
+      </div>
+    </div>
+  `).join("");
+}
+
+// 7. ADMIN ACTIONS & STATS (NEW)
+async function loadAdminDashboard() {
+  const { data: items, error } = await supabase.from("items").select("*").order("created_at", { ascending: false });
+  if (error) return;
+
+  // Update Stats Cards
+  document.getElementById("totalItems").textContent = items.length;
+  document.getElementById("activeLost").textContent = items.filter(i => i.type === 'lost').length;
+  document.getElementById("activeFound").textContent = items.filter(i => i.type === 'found').length;
+  
+  // Render Admin Table
+  const tableBody = document.querySelector("#adminSection table tbody");
+  if (tableBody) {
+    tableBody.innerHTML = items.map(item => `
+      <tr>
+        <td>${item.title}</td>
+        <td><span class="status-tag ${item.status}">${item.status}</span></td>
+        <td>${item.type}</td>
+        <td>${new Date(item.date).toLocaleDateString()}</td>
+        <td>
+          <button onclick="updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>
+          <button onclick="updateStatus('${item.id}', 'rejected')" class="btn-reject">Reject</button>
+          <button onclick="deleteItem('${item.id}')" class="btn-delete">Delete</button>
+        </td>
+      </tr>`).join("");
+  }
+}
+
+// Global functions for Admin Buttons
+window.updateStatus = async (id, status) => {
+  const { error } = await supabase.from("items").update({ status }).eq("id", id);
+  if (error) alert(error.message);
+  else loadAdminDashboard();
+};
+
+window.deleteItem = async (id) => {
+  if (confirm("Are you sure you want to delete this report?")) {
+    const { error } = await supabase.from("items").delete().eq("id", id);
+    if (error) alert(error.message);
+    else loadAdminDashboard();
+  }
+};
+
+// 8. AUTH & PROFILE
+async function checkAccess() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
+
+  const adminSection = document.getElementById("adminSection");
+  if (adminSection && profile?.role === "admin") {
+    adminSection.style.display = "block";
+    loadAdminDashboard();
+  }
+
+  if (document.getElementById("userEmail")) {
+    document.getElementById("userEmail").textContent = session.user.email;
+    document.getElementById("userRole").textContent = profile?.role || "user";
+    document.getElementById("avatarText").textContent = session.user.email[0].toUpperCase();
+  }
+}
+
+// Auth Forms
 const loginForm = document.getElementById("loginForm");
 if (loginForm) {
   loginForm.addEventListener("submit", async (e) => {
@@ -88,7 +166,7 @@ if (loginForm) {
     const email = e.target.querySelector("input[type=email]").value;
     const password = e.target.querySelector("input[type=password]").value;
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) alert("Login failed: " + error.message);
+    if (error) alert(error.message);
     else window.location.href = "index.html";
   });
 }
@@ -97,57 +175,12 @@ const logoutBtn = document.getElementById("logoutBtn");
 if (logoutBtn) {
   logoutBtn.addEventListener("click", async () => {
     await supabase.auth.signOut();
-    alert("Logged out!");
-    window.location.reload();
+    window.location.href = "login.html";
   });
 }
 
-// 6. ADMIN & PROFILE LOGIC
-async function checkAdminAndProfile() {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return;
-
-  const { data } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", session.user.id)
-    .single();
-
-  // Admin Section
-  const adminSection = document.getElementById("adminSection");
-  if (adminSection && data?.role === "admin") {
-    adminSection.style.display = "block";
-    loadAdminItems();
-  }
-
-  // Profile Section
-  const userEmail = document.getElementById("userEmail");
-  if (userEmail) {
-    userEmail.textContent = session.user.email;
-    document.getElementById("avatarText").textContent = session.user.email[0].toUpperCase();
-    document.getElementById("userRole").textContent = data?.role || "user";
-  }
-}
-
-async function loadAdminItems() {
-  const { data } = await supabase.from("items").select("*");
-  const tableBody = document.querySelector("#adminSection table tbody");
-  if (tableBody && data) {
-    tableBody.innerHTML = data.map(item => `
-      <tr>
-        <td>${item.title}</td>
-        <td>${item.status}</td>
-        <td>${item.type}</td>
-        <td>
-          <button onclick="updateStatus('${item.id}', 'approved')">Approve</button>
-        </td>
-      </tr>`).join("");
-  }
-}
-
-window.updateStatus = async (id, status) => {
-  await supabase.from("items").update({ status }).eq("id", id);
-  loadAdminItems();
-};
-
-document.addEventListener("DOMContentLoaded", checkAdminAndProfile);
+// 9. INIT
+document.addEventListener("DOMContentLoaded", () => {
+  checkAccess();
+  loadRecentItems();
+});

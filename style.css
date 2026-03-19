@@ -235,3 +235,49 @@ button.secondary {
 .profile-card h2 {
   margin-top: 0.5rem;
 }
+
+/* Grid for the items */
+.items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2rem;
+  padding: 0 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Individual Item Cards */
+.card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  transition: transform 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+/* Badges for Lost/Found */
+.badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.badge.lost { background: #fee2e2; color: #ef4444; }
+.badge.found { background: #dcfce7; color: #22c55e; }
+
+/* Admin Button Styles */
+.btn-approve { background: #22c55e; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; }
+.btn-reject { background: #f59e0b; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; }
+.btn-delete { background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+
+/* Status Tags */
+.status-tag { padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
+.status-tag.pending { background: #fef3c7; color: #92400e; }
+.status-tag.approved { background: #dcfce7; color: #166534; }
+.status-tag.rejected { background: #fee2e2; color: #991b1b; }

@@ -7,19 +7,17 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Navbar -->
-<nav class="navbar">
-  <h1>CampusRecover</h1>
-  <ul>
-    <li><a href="index.html">Home</a></li>
-    <li><a href="upload.html">Report</a></li>
-    <li><a href="admin.html">Admin</a></li>
-    <li><a href="login.html">Sign In</a></li>
-    <li><a href="register.html">Register</a></li>
-    <li><a href="profile.html">Profile</a></li>
-  </ul>
-</nav>
-
+  <nav class="navbar">
+    <h1>CampusRecover</h1>
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="upload.html">Report</a></li>
+      <li><a href="admin.html">Admin</a></li>
+      <li><a href="login.html">Sign In</a></li>
+      <li><a href="register.html">Register</a></li>
+      <li><a href="profile.html">Profile</a></li>
+    </ul>
+  </nav>
 
   <section class="hero">
     <h2>Lost it? Find it.<br>Found it? Return it.</h2>
@@ -32,11 +30,9 @@
 
   <section class="recent">
     <h2 style="text-align:center; margin:2rem 0;">Recent Items</h2>
-    <div class="card">
-      
-    </div>
-    <!-- Repeat cards for other items -->
+    <div id="itemsContainer" class="items-grid"></div>
   </section>
+
+  <script type="module" src="script.js"></script>
 </body>
-<script type="module" src="script.js"></script>
 </html>
