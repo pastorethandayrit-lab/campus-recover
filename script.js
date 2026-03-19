@@ -53,16 +53,21 @@ if (registerForm) {
     const password = e.target.querySelector("input[type=password]").value;
 
     const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) return alert("Registration failed: " + error.message);
 
-    const userId = data.user?.id;
-    if (userId) {
-      await supabase.from("profiles").insert([{ id: userId, role: "user" }]);
+    if (error) {
+      alert("Registration failed: " + error.message);
+    } else {
+      const userId = data.user?.id;
+      if (userId) {
+        await supabase.from("profiles").insert([{ id: userId, role: "user" }]);
+      }
+      alert("Registration successful! Check your email to confirm.");
+      // Optional redirect
+      window.location.href = "login.html";
     }
-
-    alert("Registration successful! Check your email to confirm.");
   });
 }
+
 
 // Login
 const loginForm = document.getElementById("loginForm");
