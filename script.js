@@ -27,20 +27,29 @@ async function uploadImage(file) {
 // Upload Item (Cloudinary + Supabase)
 async function uploadItem(name, description, status, file) {
   try {
+ async function uploadItem(title, description, status, file) {
+  try {
     const imageUrl = await uploadImage(file);
 
+    // Make sure these column names match exactly what is in your Supabase Table
     const { error } = await supabase
       .from("items")
-      .insert([{ name, description, status, image_url: imageUrl }]);
+      .insert([{ 
+        title: title, 
+        description: description, 
+        status: 'pending', // Usually default to pending
+        image_url: imageUrl 
+      }]);
 
     if (error) {
-      alert("Upload failed: " + error.message);
+      alert("Database error: " + error.message);
     } else {
-      alert("Item uploaded successfully!");
+      alert("Item reported successfully!");
+      window.location.href = "index.html"; // Redirect after success
     }
   } catch (err) {
     console.error(err);
-    alert("Unexpected error during upload.");
+    alert("Cloudinary upload failed. Check your Cloud Name and Preset.");
   }
 }
 
