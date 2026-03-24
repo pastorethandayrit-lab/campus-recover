@@ -8,31 +8,46 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const cloudName = "daxarj70f"; 
 const uploadPreset = "unsigned_upload"; 
 
-
-// 2. THE GATEKEEPER & NAV RENDERER
+// 2. THE GATEKEEPER (Database-Driven)
 document.addEventListener("DOMContentLoaded", async () => {
   const { data: { session } } = await supabase.auth.getSession();
   const path = window.location.pathname;
   const isAuthPage = path.includes("login.html") || path.includes("register.html");
 
+  // Redirect to login if not authenticated
   if (!session && !isAuthPage) {
     window.location.href = "login.html";
     return;
   }
 
-  const userEmail = session?.user?.email || "";
-  const isAdmin = userEmail.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+  let isAdmin = false;
 
-  // BUILD THE NAVBAR (This ensures it never disappears)
+  if (session) {
+    // We fetch the 'role' directly from your Supabase 'profiles' table
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .single();
+
+    isAdmin = profile?.role === 'admin';
+    
+    // Debugging: Check your browser console (F12) to see your actual role
+    console.log("Current User Role:", profile?.role || "No role found");
+  }
+
+  // Handle Navbar
   renderNavbar(session, isAdmin);
 
+  // Redirect logged-in users away from Login/Register
   if (session && isAuthPage) {
     window.location.href = "index.html";
     return;
   }
 
-  // Protect Admin Page
+  // Admin Page Protection
   if (path.includes("admin.html") && !isAdmin) {
+    alert("Access Denied: Admin privileges required.");
     window.location.href = "index.html";
     return;
   }
@@ -40,12 +55,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupPage(session, isAdmin);
 });
 
+// 3. NAVBAR RENDERER
 function renderNavbar(session, isAdmin) {
-  const navContainer = document.getElementById("navLinks");
-  if (!navContainer) return;
+  const navList = document.querySelector(".navbar ul");
+  if (!navList) return;
 
   if (!session) {
-    navContainer.innerHTML = `
+    navList.innerHTML = `
       <li><a href="login.html">Sign In</a></li>
       <li><a href="register.html">Register</a></li>
     `;
@@ -58,23 +74,24 @@ function renderNavbar(session, isAdmin) {
     if (isAdmin) {
       links += `<li><a href="admin.html">Admin</a></li>`;
     }
-    navContainer.innerHTML = links;
+    navList.innerHTML = links;
   }
 }
 
-// 3. PAGE INITIALIZATION
+// 4. PAGE INITIALIZATION
 async function setupPage(session, isAdmin) {
-  const loginForm = document.getElementById("loginForm");
-  if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
-  
-  const regForm = document.getElementById("registerForm");
-  if (regForm) regForm.addEventListener("submit", (e) => handleAuth(e, 'register'));
+  if (!session) {
+    const loginForm = document.getElementById("loginForm");
+    if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
+    const regForm = document.getElementById("registerForm");
+    if (regForm) regForm.addEventListener("submit", (e) => handleAuth(e, 'register'));
+    return;
+  }
 
-  if (!session) return;
-
-  // Profile Info
-  if (document.getElementById("userEmail")) {
-    document.getElementById("userEmail").innerText = session.user.email;
+  // Profile Logic
+  const emailDisplay = document.getElementById("userEmail");
+  if (emailDisplay) {
+    emailDisplay.innerText = session.user.email;
     const roleTag = document.getElementById("userRole");
     if (roleTag) {
       roleTag.innerText = isAdmin ? "Admin" : "User";
@@ -90,7 +107,7 @@ async function setupPage(session, isAdmin) {
     loadAdminDashboard();
   }
 
-  // Home Items
+  // Home Page
   if (document.getElementById("itemsContainer")) {
     const { data } = await supabase.from("items").select("*").eq("status", "approved");
     renderItems(data || []);
@@ -104,37 +121,9 @@ async function setupPage(session, isAdmin) {
       window.location.href = "login.html";
     });
   }
-
-  // Upload Logic
-  const upForm = document.getElementById("uploadForm");
-  if (upForm) {
-    upForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const btn = upForm.querySelector('button');
-      btn.innerText = "Uploading..."; btn.disabled = true;
-      try {
-        const file = upForm.querySelector('input[type="file"]').files[0];
-        const imageUrl = await uploadImage(file);
-        const { error } = await supabase.from("items").insert([{ 
-          title: upForm.querySelectorAll('input')[0].value,
-          type: upForm.querySelector('select').value,
-          category: upForm.querySelectorAll('select')[1].value,
-          description: upForm.querySelector('textarea').value,
-          location: upForm.querySelectorAll('input')[1].value,
-          date: upForm.querySelectorAll('input')[2].value,
-          image_url: imageUrl,
-          user_id: session.user.id,
-          status: 'pending'
-        }]);
-        if (error) throw error;
-        alert("Reported successfully!");
-        window.location.href = "index.html";
-      } catch (err) { alert(err.message); btn.innerText = "Submit"; btn.disabled = false; }
-    });
-  }
 }
 
-// 4. HELPERS
+// 5. AUTHENTICATION & HELPERS
 async function handleAuth(e, type) {
   e.preventDefault();
   const email = e.target.querySelector("input[type=email]").value;
@@ -159,8 +148,8 @@ async function loadAdminDashboard() {
         <td>${item.type}</td>
         <td>${new Date(item.created_at).toLocaleDateString()}</td>
         <td>
-          ${item.status === 'pending' ? `<button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>` : ''}
-          <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
+          ${item.status === 'pending' ? `<button onclick=\"window.updateStatus('${item.id}', 'approved')\" class=\"btn-approve\">Approve</button>` : ''}
+          <button onclick=\"window.deleteItem('${item.id}')\" class=\"btn-delete\">Delete</button>
         </td>
       </tr>
     `).join("");
@@ -183,16 +172,5 @@ function renderItems(items) {
   `).join("") : `<p>No items found.</p>`;
 }
 
-async function uploadImage(file) {
-  if (!file) return "https://via.placeholder.com/200";
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", uploadPreset);
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: "POST", body: formData });
-  const data = await res.json();
-  return data.secure_url;
-}
-
 window.updateStatus = async (id, status) => { await supabase.from("items").update({ status }).eq("id", id); location.reload(); };
 window.deleteItem = async (id) => { if(confirm("Delete?")) { await supabase.from("items").delete().eq("id", id); location.reload(); } };
-window.claimItem = () => alert("Claim request sent!");
