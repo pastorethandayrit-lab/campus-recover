@@ -5,8 +5,8 @@ const supabaseUrl = "https://wdwvnojjjiodrtyrutgz.supabase.co";
 const supabaseKey = "sb_publishable_o5Ah6hay4s3LIFV0dRrQtA_gmQoMDlI";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const cloudName = "daxarj70f";
-const uploadPreset = "unsigned_upload";
+const cloudName = "daxarj70f"; 
+const uploadPreset = "unsigned_upload"; 
 
 // 2. IMAGE UPLOAD
 async function uploadImage(file) {
@@ -39,7 +39,11 @@ async function handleAuth(e, type) {
 // 4. CLAIM INTERACTION
 window.claimItem = async (itemId, type) => {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) { alert("Please sign in first!"); window.location.href = "login.html"; return; }
+  if (!session) { 
+    alert("Please sign in first!"); 
+    window.location.href = "login.html"; 
+    return; 
+  }
 
   const { error } = await supabase.from("claims").insert([{
     item_id: itemId,
@@ -149,37 +153,52 @@ function renderItems(items) {
 document.addEventListener("DOMContentLoaded", async () => {
   // --- GATEKEEPER START ---
   const { data: { session } } = await supabase.auth.getSession();
-  const publicPages = ["login.html", "register.html", "index.html"];
-  const currentPage = window.location.pathname.split("/").pop() || "index.html";
+  
+  // These pages are accessible to everyone
+  const publicPages = ["login.html", "register.html", "index.html", ""]; 
+  const currentPage = window.location.pathname.split("/").pop();
 
+  // Redirect to login if accessing protected page while logged out
   if (!session && !publicPages.includes(currentPage)) {
-    alert("Access Denied. Please sign in to continue.");
+    alert("Please sign in to access this page.");
     window.location.href = "login.html";
     return;
   }
   // --- GATEKEEPER END ---
 
-  const { data: recent } = await supabase.from("items").select("*").eq("status", "approved").order("created_at", { ascending: false }).limit(6);
+  // Load public content (Recent Items)
+  const { data: recent } = await supabase.from("items")
+    .select("*")
+    .eq("status", "approved")
+    .order("created_at", { ascending: false })
+    .limit(6);
   if (recent) renderItems(recent);
 
+  // If logged in, handle profile and admin access
   if (session) {
     if (document.getElementById("userEmail")) document.getElementById("userEmail").textContent = session.user.email;
     if (document.getElementById("avatarText")) document.getElementById("avatarText").textContent = session.user.email[0].toUpperCase();
 
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
-    if (document.getElementById("userRole")) document.getElementById("userRole").textContent = profile?.role || "User";
+    
+    if (document.getElementById("userRole")) {
+        document.getElementById("userRole").textContent = profile?.role || "User";
+    }
+
+    // Role-based gatekeeping for Admin page
+    if (currentPage === "admin.html" && profile?.role !== "admin") {
+        alert("Admin access only.");
+        window.location.href = "index.html";
+        return;
+    }
 
     if (document.getElementById("adminSection") && profile?.role === "admin") {
       document.getElementById("adminSection").style.display = "block";
       loadAdminDashboard();
     }
-    
-    // Admin Page Access Control
-    if (currentPage === "admin.html" && profile?.role !== "admin") {
-        window.location.href = "index.html";
-    }
   }
 
+  // Form Listeners
   if (document.getElementById("loginForm")) document.getElementById("loginForm").addEventListener("submit", (e) => handleAuth(e, 'login'));
   if (document.getElementById("registerForm")) document.getElementById("registerForm").addEventListener("submit", (e) => handleAuth(e, 'register'));
   
@@ -202,5 +221,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  document.querySelectorAll("#logoutBtn").forEach(btn => btn.addEventListener("click", () => supabase.auth.signOut().then(() => window.location.href = "login.html")));
+  document.querySelectorAll("#logoutBtn").forEach(btn => 
+    btn.addEventListener("click", () => supabase.auth.signOut().then(() => window.location.href = "login.html"))
+  );
 });
