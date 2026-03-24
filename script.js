@@ -69,7 +69,25 @@ function renderNavbar(session, isAdmin) {
 
 // 4. PAGE INITIALIZATION
 async function setupPage(session, isAdmin) {
+  // ATTACH AUTH LISTENERS FIRST (Fixes login issues)
+  const loginForm = document.getElementById("loginForm");
+  if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
+  const regForm = document.getElementById("registerForm");
+  if (regForm) regForm.addEventListener("submit", (e) => handleAuth(e, 'register'));
+
   if (!session) return;
+
+  // Profile Logic
+  const emailDisplay = document.getElementById("userEmail");
+  if (emailDisplay) {
+    emailDisplay.innerText = session.user.email;
+    const roleTag = document.getElementById("userRole");
+    if (roleTag) {
+      roleTag.innerText = isAdmin ? "Admin" : "User";
+      roleTag.style.background = isAdmin ? "#ef4444" : "#dcfce7";
+      roleTag.style.color = isAdmin ? "white" : "#166534";
+    }
+  }
 
   // Admin Dashboard
   if (window.location.pathname.includes("admin.html") && isAdmin) {
@@ -85,7 +103,7 @@ async function setupPage(session, isAdmin) {
     renderItems(data || []);
   }
 
-  // Logout Logic
+  // Logout
   const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) {
     logoutBtn.addEventListener("click", async () => {
@@ -123,7 +141,7 @@ async function setupPage(session, isAdmin) {
   }
 }
 
-// 5. ITEM RENDERING (Expanding Details + Admin Message)
+// 5. ITEM RENDERING (Updated with Expanding Details & Admin Note)
 function renderItems(items) {
   const container = document.getElementById("itemsContainer");
   if (!container) return;
@@ -146,18 +164,12 @@ function renderItems(items) {
           </div>
 
           <div id="${detailsId}" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc;">
-            <p style="font-size: 0.85rem; color: #475569; line-height: 1.4;">
-              <strong>Description:</strong> ${item.description || "No description."}
-            </p>
-            ${item.admin_note ? `
-              <p style="font-size: 0.8rem; color: #ef4444; background: #fff5f5; padding: 8px; border-radius: 4px; margin-top: 10px; border-left: 3px solid #ef4444;">
-                ⚠️ <strong>Admin Note:</strong> ${item.admin_note}
-              </p>
-            ` : ''}
+            <p style="font-size: 0.85rem; color: #444;"><strong>Description:</strong> ${item.description || "No description."}</p>
+            ${item.admin_note ? `<p style="font-size: 0.8rem; color: #ef4444; background: #fee2e2; padding: 5px; border-radius: 4px; margin-top: 5px;"><strong>Note:</strong> ${item.admin_note}</p>` : ''}
           </div>
 
           <div style="display: flex; gap: 5px; margin-top: 15px;">
-             <button onclick="window.toggleDetails('${detailsId}', this)" 
+            <button onclick="window.toggleDetails('${detailsId}', this)" 
                     style="flex: 1; padding: 10px; cursor: pointer; border-radius: 6px; border: 1px solid #ccc; background: #fff;">
               Details
             </button>
@@ -173,7 +185,7 @@ function renderItems(items) {
   }).join("") : `<p>No items found.</p>`;
 }
 
-// 6. HELPERS
+// 6. ACTION HELPERS
 window.toggleDetails = (id, btn) => {
   const el = document.getElementById(id);
   const isHidden = el.style.display === "none";
@@ -184,33 +196,65 @@ window.toggleDetails = (id, btn) => {
 window.notifyAdmin = async (itemId, itemTitle, actionType) => {
   const { data: { session } } = await supabase.auth.getSession();
   const { error } = await supabase.from('notifications').insert([{
-    item_id: itemId, user_id: session.user.id, user_email: session.user.email,
-    item_title: itemTitle, action_type: actionType
+    item_id: itemId,
+    user_id: session.user.id,
+    user_email: session.user.email,
+    item_title: itemTitle,
+    action_type: actionType
   }]);
-  alert(error ? error.message : "Admin notified!");
+
+  if (error) alert("Error: " + error.message);
+  else alert(actionType === 'found_report' ? "Admin notified!" : "Claim request sent!");
 };
 
-// 7. ADMIN DASHBOARD (With Item Count and Message Input)
+async function loadNotifications() {
+  const { data: notes } = await supabase.from("notifications").select("*").order("created_at", { ascending: false });
+  const adminSection = document.getElementById("adminSection");
+  let notifyTable = document.getElementById("notifyTableBody");
+  
+  if (!notifyTable && adminSection) {
+    const div = document.createElement('div');
+    div.innerHTML = `<h3>User Notifications</h3><div class="table-container"><table><thead><tr><th>User</th><th>Item</th><th>Action</th></tr></thead><tbody id="notifyTableBody"></tbody></table></div>`;
+    adminSection.appendChild(div);
+    notifyTable = document.getElementById("notifyTableBody");
+  }
+
+  if (notes && notifyTable) {
+    notifyTable.innerHTML = notes.map(n => `<tr><td>${n.user_email}</td><td>${n.item_title}</td><td>${n.action_type.replace('_', ' ')}</td></tr>`).join("");
+  }
+}
+
+// 7. AUTH & ADMIN HELPERS
+async function handleAuth(e, type) {
+  e.preventDefault();
+  const email = e.target.querySelector("input[type=email]").value;
+  const password = e.target.querySelector("input[type=password]").value;
+  try {
+    const { error } = type === 'login' 
+      ? await supabase.auth.signInWithPassword({ email, password })
+      : await supabase.auth.signUp({ email, password });
+    if (error) throw error;
+    window.location.href = "index.html";
+  } catch (err) { alert(err.message); }
+}
+
 async function loadAdminDashboard() {
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   const tableBody = document.getElementById("adminTableBody");
   
   if (items) {
-    // Update Counts
-    const total = document.getElementById("adminTotal");
-    const lost = document.getElementById("adminLost");
-    const found = document.getElementById("adminFound");
-    if (total) total.innerText = items.length;
-    if (lost) lost.innerText = items.filter(i => i.type === 'lost').length;
-    if (found) found.innerText = items.filter(i => i.type === 'found').length;
+    // Update Stats
+    if(document.getElementById("adminTotal")) document.getElementById("adminTotal").innerText = items.length;
+    if(document.getElementById("adminLost")) document.getElementById("adminLost").innerText = items.filter(i => i.type === 'lost').length;
+    if(document.getElementById("adminFound")) document.getElementById("adminFound").innerText = items.filter(i => i.type === 'found').length;
 
     if (tableBody) {
       tableBody.innerHTML = items.map(item => `
         <tr>
           <td>${item.title}</td>
           <td>
-            <input type="text" id="note-${item.id}" placeholder="Admin message..." value="${item.admin_note || ''}" 
-                   style="padding: 5px; width: 100%; border: 1px solid #ddd; border-radius: 4px;">
+            <input type="text" id="note-${item.id}" placeholder="Note..." value="${item.admin_note || ''}" 
+                   style="padding: 5px; width: 100px; border: 1px solid #ddd; border-radius: 4px;">
           </td>
           <td>
              <input type="text" value="${item.location}" onchange="window.updateLocation('${item.id}', this.value)"
@@ -218,8 +262,8 @@ async function loadAdminDashboard() {
           </td>
           <td>
             <div style="display: flex; gap: 5px;">
-              ${item.status === 'pending' ? `<button onclick="window.approveWithMessage('${item.id}')" class="btn-approve">Approve</button>` : '<span style="color:green; font-weight:bold;">Approved</span>'}
-              <button onclick="window.deleteItem('${item.id}')" class="btn-delete" style="background: #ef4444; color: white;">Delete</button>
+              ${item.status === 'pending' ? `<button onclick="window.approveWithNote('${item.id}')" class="btn-approve">Approve</button>` : '✅'}
+              <button onclick="window.deleteItem('${item.id}')" class="btn-delete" style="background:#ef4444; color:white; border:none; border-radius:4px; padding:5px;">Del</button>
             </div>
           </td>
         </tr>
@@ -228,14 +272,10 @@ async function loadAdminDashboard() {
   }
 }
 
-window.approveWithMessage = async (id) => {
+window.approveWithNote = async (id) => { 
   const note = document.getElementById(`note-${id}`).value;
-  const { error } = await supabase.from("items").update({ 
-    status: 'approved', 
-    location: 'Admin Office', 
-    admin_note: note 
-  }).eq("id", id);
-  if (error) alert(error.message); else location.reload();
+  await supabase.from("items").update({ status: 'approved', location: 'Admin Office', admin_note: note }).eq("id", id); 
+  location.reload(); 
 };
 
 window.updateLocation = async (id, newLoc) => {
@@ -248,16 +288,6 @@ window.deleteItem = async (id) => {
     location.reload(); 
   } 
 };
-
-async function loadNotifications() {
-  const { data: notes } = await supabase.from("notifications").select("*").order("created_at", { ascending: false });
-  const table = document.getElementById("notifyTableBody");
-  if (table && notes) {
-    table.innerHTML = notes.map(n => `
-      <tr><td>${n.user_email}</td><td>${n.item_title}</td><td>${n.action_type}</td></tr>
-    `).join("");
-  }
-}
 
 async function uploadImage(file) {
   if (!file) return "https://via.placeholder.com/200";

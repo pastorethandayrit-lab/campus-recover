@@ -3,39 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CampusRecover | Admin Dashboard</title>
+  <title>CampusRecover | Admin</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <nav class="navbar">
-    <h1>CampusRecover Admin</h1>
+    <h1>CampusRecover</h1>
     <ul></ul>
   </nav>
 
-  <section id="adminSection" style="display:none; padding: 2rem;">
-    
-    <div style="display: flex; gap: 20px; margin-bottom: 2rem;">
-      <div style="flex: 1; background: #2563eb; color: white; padding: 15px; border-radius: 8px; text-align: center;">
-        <h4 style="margin:0;">Total</h4>
-        <p id="adminTotal" style="font-size: 1.5rem; font-weight: bold; margin:0;">0</p>
+  <section id="adminSection" style="display:none;" class="dashboard">
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+      <div style="flex:1; background:#2563eb; color:white; padding:15px; border-radius:8px; text-align:center;">
+        <small>Total</small><h2 id="adminTotal" style="margin:0;">0</h2>
       </div>
-      <div style="flex: 1; background: #ef4444; color: white; padding: 15px; border-radius: 8px; text-align: center;">
-        <h4 style="margin:0;">Lost</h4>
-        <p id="adminLost" style="font-size: 1.5rem; font-weight: bold; margin:0;">0</p>
+      <div style="flex:1; background:#ef4444; color:white; padding:15px; border-radius:8px; text-align:center;">
+        <small>Lost</small><h2 id="adminLost" style="margin:0;">0</h2>
       </div>
-      <div style="flex: 1; background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center;">
-        <h4 style="margin:0;">Found</h4>
-        <p id="adminFound" style="font-size: 1.5rem; font-weight: bold; margin:0;">0</p>
+      <div style="flex:1; background:#10b981; color:white; padding:15px; border-radius:8px; text-align:center;">
+        <small>Found</small><h2 id="adminFound" style="margin:0;">0</h2>
       </div>
     </div>
 
     <div class="table-container">
-      <h3>Manage Submissions</h3>
       <table>
         <thead>
           <tr>
             <th>Item</th>
-            <th>Admin Message</th>
+            <th>Admin Note</th>
             <th>Location</th>
             <th>Actions</th>
           </tr>
@@ -43,21 +38,6 @@
         <tbody id="adminTableBody"></tbody>
       </table>
     </div>
-
-    <div class="table-container" style="margin-top: 3rem;">
-      <h3>User Activity</h3>
-      <table>
-        <thead>
-          <tr><th>User</th><th>Item</th><th>Action</th></tr>
-        </thead>
-        <tbody id="notifyTableBody"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section id="accessDenied" style="display:none; text-align: center; padding: 5rem 2rem;">
-    <h2>Access Denied</h2>
-    <a href="index.html">Return Home</a>
   </section>
 
   <script type="module" src="script.js"></script>
