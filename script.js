@@ -8,8 +8,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const cloudName = "daxarj70f"; 
 const uploadPreset = "unsigned_upload"; 
 
-// 2. THE ADMIN EMAIL
-// Make sure this matches your Supabase login exactly!
+// 2. THE ADMIN EMAIL 
+// CRITICAL: Ensure this is exactly what you use to sign in.
 const ADMIN_EMAIL = 'admin@campus.com'; 
 
 // 3. THE GATEKEEPER
@@ -18,27 +18,31 @@ document.addEventListener("DOMContentLoaded", async () => {
   const path = window.location.pathname;
   const isAuthPage = path.includes("login.html") || path.includes("register.html");
 
-  // If not logged in, send to login (except on auth pages)
+  // Authentication Guard
   if (!session && !isAuthPage) {
     window.location.href = "login.html";
     return;
   }
 
-  // THE ADMIN CHECK (The part that was failing)
-  // We use .toLowerCase() and .trim() to ensure a perfect match
+  // --- THE STRIKE-ZONE FIX ---
   const userEmail = session?.user?.email || "";
+  // This converts BOTH to lowercase and removes spaces to force a match
   const isAdmin = userEmail.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
 
-  // Redirect logged-in users away from Login/Register
+  // DEBUGGER (Press F12 to see this in your browser)
+  console.log("--- ADMIN DEBUG ---");
+  console.log("Logged in as:", `[${userEmail}]`);
+  console.log("Target Admin:", `[${ADMIN_EMAIL}]`);
+  console.log("Result:", isAdmin ? "✅ MATCH FOUND" : "❌ NO MATCH");
+
   if (session && isAuthPage) {
     window.location.href = "index.html";
     return;
   }
 
-  // ADMIN PAGE PROTECTION
-  // This allows you into admin.html ONLY if you are the admin
+  // Admin Page Protection
   if (path.includes("admin.html") && !isAdmin) {
-    alert("Access Denied: Admin account required.");
+    console.warn("Access Denied: Not an admin account.");
     window.location.href = "index.html";
     return;
   }
@@ -48,7 +52,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // 4. PAGE INITIALIZATION
 async function setupPage(session, isAdmin) {
-  // Handle Auth Forms
+  // Forms
   const loginForm = document.getElementById("loginForm");
   if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
   
@@ -57,12 +61,15 @@ async function setupPage(session, isAdmin) {
 
   if (!session) return;
 
-  // Profile Page Logic
-  if (document.getElementById("userEmail")) {
-    document.getElementById("userEmail").innerText = session.user.email;
+  // Profile Page UI
+  const emailDisplay = document.getElementById("userEmail");
+  if (emailDisplay) {
+    emailDisplay.innerText = session.user.email;
     const roleTag = document.getElementById("userRole");
+    const avatar = document.getElementById("avatarText");
     
-    // This updates the "User/Admin" text on your profile
+    if (avatar) avatar.innerText = session.user.email[0].toUpperCase();
+    
     if (roleTag) {
       roleTag.innerText = isAdmin ? "Admin" : "User";
       roleTag.style.background = isAdmin ? "#ef4444" : "#dcfce7";
@@ -70,10 +77,11 @@ async function setupPage(session, isAdmin) {
     }
   }
 
-  // Navbar: Show/Hide the Admin link
+  // Navbar Logic
   const adminNavLink = document.querySelector('a[href="admin.html"]');
-  if (adminNavLink && !isAdmin) {
-    adminNavLink.parentElement.style.display = "none";
+  if (adminNavLink) {
+    // Only show the link in the menu if isAdmin is true
+    adminNavLink.parentElement.style.display = isAdmin ? "block" : "none";
   }
 
   // Admin Dashboard Loading
@@ -95,6 +103,35 @@ async function setupPage(session, isAdmin) {
     logoutBtn.addEventListener("click", async () => {
       await supabase.auth.signOut();
       window.location.href = "login.html";
+    });
+  }
+
+  // Upload Logic
+  const upForm = document.getElementById("uploadForm");
+  if (upForm) {
+    upForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = upForm.querySelector('button');
+      btn.innerText = "Uploading..."; btn.disabled = true;
+
+      try {
+        const file = upForm.querySelector('input[type="file"]').files[0];
+        const imageUrl = await uploadImage(file);
+        const { error } = await supabase.from("items").insert([{ 
+          title: upForm.querySelectorAll('input')[0].value,
+          type: upForm.querySelector('select').value,
+          category: upForm.querySelectorAll('select')[1].value,
+          description: upForm.querySelector('textarea').value,
+          location: upForm.querySelectorAll('input')[1].value,
+          date: upForm.querySelectorAll('input')[2].value,
+          image_url: imageUrl,
+          user_id: session.user.id,
+          status: 'pending'
+        }]);
+        if (error) throw error;
+        alert("Reported! Waiting for admin approval.");
+        window.location.href = "index.html";
+      } catch (err) { alert(err.message); btn.innerText = "Submit"; btn.disabled = false; }
     });
   }
 }
@@ -123,7 +160,7 @@ async function handleAuth(e, type) {
   }
 }
 
-// 6. DASHBOARD & RENDERERS (Same as your original)
+// 6. DASHBOARD & RENDERERS
 async function loadAdminDashboard() {
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   const tableBody = document.getElementById("adminTableBody");
@@ -159,6 +196,16 @@ function renderItems(items) {
   `).join("") : `<p>No items found.</p>`;
 }
 
+async function uploadImage(file) {
+  if (!file) return "https://via.placeholder.com/200";
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", uploadPreset);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: "POST", body: formData });
+  const data = await res.json();
+  return data.secure_url;
+}
+
 // 7. WINDOW GLOBALS
 window.updateStatus = async (id, status) => { 
   await supabase.from("items").update({ status }).eq("id", id); 
@@ -171,3 +218,5 @@ window.deleteItem = async (id) => {
     location.reload(); 
   } 
 };
+
+window.claimItem = () => alert("Claim request sent!");
