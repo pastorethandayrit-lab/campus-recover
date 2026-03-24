@@ -8,10 +8,9 @@
 </head>
 <body>
   <nav class="navbar">
-  <h1>CampusRecover</h1>
-  <ul>
-    </ul>
-</nav>
+    <h1>CampusRecover</h1>
+    <ul></ul>
+  </nav>
 
   <section class="hero" style="text-align: center; padding: 4rem 2rem; background: #fffbe6;">
     <div class="container">
@@ -22,6 +21,26 @@
 
   <main class="dashboard">
     <h2 style="text-align:center; margin-bottom: 2rem;">Recent Items</h2>
+
+    <div style="max-width: 800px; margin: 0 auto 2rem; display: flex; gap: 10px; flex-wrap: wrap; padding: 0 1rem;">
+      <input type="text" id="searchInput" placeholder="Search title or location..." 
+             style="flex: 2; min-width: 200px; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
+      
+      <select id="typeFilter" style="flex: 1; min-width: 100px; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
+        <option value="all">All Types</option>
+        <option value="lost">Lost</option>
+        <option value="found">Found</option>
+      </select>
+
+      <select id="categoryFilter" style="flex: 1; min-width: 120px; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
+        <option value="all">All Categories</option>
+        <option value="electronics">Electronics</option>
+        <option value="documents">Documents/IDs</option>
+        <option value="personal">Personal Items</option>
+        <option value="others">Others</option>
+      </select>
+    </div>
+
     <div id="itemsContainer" class="items-grid">
       <p style="text-align: center; grid-column: 1/-1;">Loading items...</p>
     </div>
