@@ -79,6 +79,14 @@ async function setupPage(session, isAdmin) {
 
   if (!session) return;
 
+  // --- PROFILE PAGE LOGIC ---
+  if (window.location.pathname.includes("profile.html")) {
+    const emailDisplay = document.getElementById("userEmail");
+    const roleDisplay = document.getElementById("userRole");
+    if (emailDisplay) emailDisplay.innerText = session.user.email;
+    if (roleDisplay) roleDisplay.innerText = isAdmin ? "Administrator" : "User";
+  }
+
   // Home Page logic (Search & Filter)
   if (document.getElementById("itemsContainer")) {
     const { data } = await supabase.from("items").select("*").eq("status", "approved");
@@ -135,13 +143,12 @@ async function setupPage(session, isAdmin) {
         const file = upForm.querySelector('input[type="file"]').files[0];
         const imageUrl = await uploadImage(file);
         
-        // Mapped to match your HTML structure exactly:
         const typeValue = upForm.querySelectorAll('select')[0].value;
-        const titleValue = upForm.querySelectorAll('input')[0].value;    // First text input
-        const categoryValue = upForm.querySelectorAll('select')[1].value; // Second dropdown
+        const titleValue = upForm.querySelectorAll('input')[0].value;
+        const categoryValue = upForm.querySelectorAll('select')[1].value;
         const descValue = upForm.querySelector('textarea').value;
-        const locValue = upForm.querySelectorAll('input')[1].value;      // Second text input
-        const dateValue = upForm.querySelectorAll('input')[2].value;     // Third input (Date)
+        const locValue = upForm.querySelectorAll('input')[1].value;
+        const dateValue = upForm.querySelectorAll('input')[2].value;
 
         const { error } = await supabase.from("items").insert([{ 
           type: typeValue,
@@ -236,30 +243,42 @@ async function loadAdminDashboard() {
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   const tableBody = document.getElementById("adminTableBody");
   
-  if (items && tableBody) {
-    tableBody.innerHTML = items.map(item => {
-      const isPending = item.status === 'pending';
-      return `
-      <tr>
-        <td>
-          <strong>${item.title}</strong> 
-          <span style="font-size:0.65rem; padding:2px 4px; border-radius:3px; background:${isPending ? '#fef3c7':'#dcfce7'}; color:${isPending ? '#92400e':'#166534'};">
-            ${item.status.toUpperCase()}
-          </span>
-          <br><small style="color:gray;">${new Date(item.date).toLocaleDateString()}</small>
-        </td>
-        <td>
-          <input type="text" id="note-${item.id}" value="${item.admin_note || ''}" style="width: 100px;">
-        </td>
-        <td>
-           <input type="text" value="${item.location}" onchange="window.updateLocation('${item.id}', this.value)" style="width: 100px;">
-        </td>
-        <td>
-          <button onclick="window.approveItem('${item.id}')">Approve</button>
-          <button onclick="window.deleteItem('${item.id}')">Del</button>
-        </td>
-      </tr>`
-    }).join("");
+  if (items) {
+    // --- UPDATE COUNTS ---
+    const total = items.length;
+    const lost = items.filter(item => item.type.toLowerCase() === 'lost').length;
+    const found = items.filter(item => item.type.toLowerCase() === 'found').length;
+
+    if (document.getElementById("adminTotal")) document.getElementById("adminTotal").innerText = total;
+    if (document.getElementById("adminLost")) document.getElementById("adminLost").innerText = lost;
+    if (document.getElementById("adminFound")) document.getElementById("adminFound").innerText = found;
+
+    // --- RENDER TABLE ---
+    if (tableBody) {
+      tableBody.innerHTML = items.map(item => {
+        const isPending = item.status === 'pending';
+        return `
+        <tr>
+          <td>
+            <strong>${item.title}</strong> 
+            <span style="font-size:0.65rem; padding:2px 4px; border-radius:3px; background:${isPending ? '#fef3c7':'#dcfce7'}; color:${isPending ? '#92400e':'#166534'};">
+              ${item.status.toUpperCase()}
+            </span>
+            <br><small style="color:gray;">${new Date(item.date).toLocaleDateString()}</small>
+          </td>
+          <td>
+            <input type="text" id="note-${item.id}" value="${item.admin_note || ''}" style="width: 100px;">
+          </td>
+          <td>
+             <input type="text" value="${item.location}" onchange="window.updateLocation('${item.id}', this.value)" style="width: 100px;">
+          </td>
+          <td>
+            <button onclick="window.approveItem('${item.id}')">Approve</button>
+            <button onclick="window.deleteItem('${item.id}')">Del</button>
+          </td>
+        </tr>`
+      }).join("");
+    }
   }
 }
 
