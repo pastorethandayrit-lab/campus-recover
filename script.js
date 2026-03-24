@@ -8,6 +8,9 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const cloudName = "daxarj70f"; 
 const uploadPreset = "unsigned_upload"; 
 
+// Global variable to hold our data for filtering
+let allItems = [];
+
 // 2. THE GATEKEEPER
 document.addEventListener("DOMContentLoaded", async () => {
   const { data: { session } } = await supabase.auth.getSession();
@@ -67,7 +70,7 @@ function renderNavbar(session, isAdmin) {
   }
 }
 
-// 4. PAGE INITIALIZATION (UPDATED WITH SEARCH/FILTER)
+// 4. PAGE INITIALIZATION
 async function setupPage(session, isAdmin) {
   const loginForm = document.getElementById("loginForm");
   if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
@@ -76,56 +79,42 @@ async function setupPage(session, isAdmin) {
 
   if (!session) return;
 
-  const emailDisplay = document.getElementById("userEmail");
-  if (emailDisplay) {
-    emailDisplay.innerText = session.user.email;
-    const roleTag = document.getElementById("userRole");
-    if (roleTag) {
-      roleTag.innerText = isAdmin ? "Admin" : "User";
-      roleTag.style.background = isAdmin ? "#ef4444" : "#dcfce7";
-      roleTag.style.color = isAdmin ? "white" : "#166534";
-    }
+  // Home Page logic
+  if (document.getElementById("itemsContainer")) {
+    const { data } = await supabase.from("items").select("*").eq("status", "approved");
+    allItems = data || [];
+    renderItems(allItems);
+
+    // Setup Search/Filter Listeners
+    const searchInput = document.getElementById("searchInput");
+    const typeFilter = document.getElementById("typeFilter");
+    const categoryFilter = document.getElementById("categoryFilter");
+
+    const runFilters = () => {
+      const q = searchInput.value.toLowerCase();
+      const t = typeFilter.value;
+      const c = categoryFilter.value;
+
+      const filtered = allItems.filter(item => {
+        const matchesSearch = item.title.toLowerCase().includes(q) || item.location.toLowerCase().includes(q);
+        const matchesType = t === "all" || item.type.toLowerCase() === t;
+        const matchesCategory = c === "all" || item.category.toLowerCase() === c;
+        return matchesSearch && matchesType && matchesCategory;
+      });
+      renderItems(filtered);
+    };
+
+    if (searchInput) searchInput.addEventListener("input", runFilters);
+    if (typeFilter) typeFilter.addEventListener("change", runFilters);
+    if (categoryFilter) categoryFilter.addEventListener("change", runFilters);
   }
 
+  // Admin section
   if (window.location.pathname.includes("admin.html") && isAdmin) {
     const section = document.getElementById("adminSection");
     if (section) section.style.display = "block";
     loadAdminDashboard();
     loadNotifications(); 
-  }
-
-  // UPDATED: Home Page Items with Search and Filter logic
-  if (document.getElementById("itemsContainer")) {
-    const { data } = await supabase.from("items").select("*").eq("status", "approved");
-    const allItems = data || [];
-    
-    // Initial render
-    renderItems(allItems);
-
-    // Filter elements
-    const searchInput = document.getElementById("searchInput");
-    const typeFilter = document.getElementById("typeFilter");
-    const categoryFilter = document.getElementById("categoryFilter");
-
-    const applyFilters = () => {
-      const query = searchInput.value.toLowerCase();
-      const type = typeFilter.value;
-      const category = categoryFilter.value;
-
-      const filtered = allItems.filter(item => {
-        const matchesSearch = item.title.toLowerCase().includes(query) || 
-                              item.location.toLowerCase().includes(query);
-        const matchesType = type === "all" || item.type.toLowerCase() === type;
-        const matchesCategory = category === "all" || item.category.toLowerCase() === category;
-        return matchesSearch && matchesType && matchesCategory;
-      });
-
-      renderItems(filtered);
-    };
-
-    if (searchInput) searchInput.addEventListener("input", applyFilters);
-    if (typeFilter) typeFilter.addEventListener("change", applyFilters);
-    if (categoryFilter) categoryFilter.addEventListener("change", applyFilters);
   }
 
   const logoutBtn = document.getElementById("logoutBtn");
@@ -204,7 +193,7 @@ function renderItems(items) {
         </div>
       </div>
     `;
-  }).join("") : `<p style="grid-column: 1/-1; text-align: center; color: #666; padding: 2rem;">No items found matching your criteria.</p>`;
+  }).join("") : `<p style="grid-column: 1/-1; text-align: center; color: #666;">No items found matching your search.</p>`;
 }
 
 // 6. ACTION HELPERS
@@ -233,33 +222,88 @@ async function loadAdminDashboard() {
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   const tableBody = document.getElementById("adminTableBody");
   
-  if (items) {
-    if(document.getElementById("adminTotal")) document.getElementById("adminTotal").innerText = items.length;
-    if(document.getElementById("adminLost")) document.getElementById("adminLost").innerText = items.filter(i => i.type === 'lost').length;
-    if(document.getElementById("adminFound")) document.getElementById("adminFound").innerText = items.filter(i => i.type === 'found').length;
+  if (items && tableBody) {
+    tableBody.innerHTML = items.map(item => {
+      const isPending = item.status === 'pending';
+      return `
+      <tr>
+        <td>
+          <strong>${item.title}</strong> 
+          <span style="font-size:0.65rem; padding:2px 4px; border-radius:3px; background:${isPending ? '#fef3c7':'#dcfce7'}; color:${isPending ? '#92400e':'#166534'};">
+            ${item.status.toUpperCase()}
+          </span>
+          <br><small style="color:gray;">${new Date(item.date).toLocaleDateString()}</small>
+        </td>
+        <td>
+          <input type="text" id="note-${item.id}" value="${item.admin_note || ''}" style="width: 100px;">
+        </td>
+        <td>
+           <input type="text" value="${item.location}" onchange="window.updateLocation('${item.id}', this.value)" style="width: 100px;">
+        </td>
+        <td>
+          <button onclick="window.approveItem('${item.id}')">Approve</button>
+          <button onclick="window.deleteItem('${item.id}')">Del</button>
+        </td>
+      </tr>`
+    }).join("");
+  }
+}
 
-    if (tableBody) {
-      tableBody.innerHTML = items.map(item => {
-        const isPending = item.status === 'pending';
-        return `
-        <tr>
-          <td>
-            <strong>${item.title}</strong> 
-            <span style="font-size:0.65rem; padding:2px 4px; border-radius:3px; background:${isPending ? '#fef3c7':'#dcfce7'}; color:${isPending ? '#92400e':'#166534'};">
-              ${item.status.toUpperCase()}
-            </span>
-            <br><small style="color:gray;">${new Date(item.date).toLocaleDateString()}</small>
-          </td>
-          <td>
-            <input type="text" id="note-${item.id}" placeholder="Note..." value="${item.admin_note || ''}" 
-                   style="padding: 5px; width: 100px; border: 1px solid #ddd; border-radius: 4px;">
-          </td>
-          <td>
-             <input type="text" value="${item.location}" onchange="window.updateLocation('${item.id}', this.value)"
-                    style="padding: 5px; width: 100px; border: 1px solid #ddd; border-radius: 4px;">
-          </td>
-          <td>
-            <div style="display: flex; gap: 4px;">
-              ${isPending ? `<button onclick="window.approveItem('${item.id}')" style="background:#10b981; color:white; border:none; border-radius:4px; padding:5px; cursor:pointer;">Approve</button>` : '✅'}
-              <button onclick="window.deleteItem('${item.id}')" class="btn-delete" 
-                      style="background:#ef4444; color:white; border:none; border-radius:4px; padding:5px; cursor:pointer;">Del</button
+async function loadNotifications() {
+  const { data: notes } = await supabase.from("notifications").select("*").order("created_at", { ascending: false });
+  const table = document.getElementById("notifyTableBody");
+  if (table && notes) {
+    table.innerHTML = notes.map(n => `
+      <tr>
+        <td>${n.user_email}</td>
+        <td>${n.item_title}</td>
+        <td>${n.action_type}</td>
+        <td><input type="text" id="reply-${n.id}"></td>
+        <td><button onclick="window.processActivity('${n.id}', '${n.item_id}', 'approved')">Confirm</button></td>
+      </tr>`).join("");
+  }
+}
+
+window.approveItem = async (id) => {
+  const note = document.getElementById(`note-${id}`).value;
+  await supabase.from("items").update({ status: 'approved', admin_note: note }).eq("id", id);
+  location.reload();
+};
+
+window.processActivity = async (notifId, itemId, decision) => {
+  const comment = document.getElementById(`reply-${notifId}`).value;
+  const updateData = { admin_note: comment };
+  if (decision === 'approved') updateData.status = 'approved';
+  await supabase.from("items").update(updateData).eq("id", itemId);
+  await supabase.from("notifications").delete().eq("id", notifId);
+  location.reload();
+};
+
+window.updateLocation = async (id, newLoc) => {
+  await supabase.from("items").update({ location: newLoc }).eq("id", id);
+};
+
+window.deleteItem = async (id) => { 
+  if(confirm("Delete item?")) { 
+    await supabase.from("items").delete().eq("id", id); 
+    location.reload(); 
+  } 
+};
+
+async function handleAuth(e, type) {
+  e.preventDefault();
+  const email = e.target.querySelector("input[type=email]").value;
+  const password = e.target.querySelector("input[type=password]").value;
+  const { error } = type === 'login' ? await supabase.auth.signInWithPassword({ email, password }) : await supabase.auth.signUp({ email, password });
+  if (error) alert(error.message); else window.location.href = "index.html";
+}
+
+async function uploadImage(file) {
+  if (!file) return "https://via.placeholder.com/200";
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", uploadPreset);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: "POST", body: formData });
+  const data = await res.json();
+  return data.secure_url;
+}
