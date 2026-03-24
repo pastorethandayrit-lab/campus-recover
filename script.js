@@ -94,7 +94,7 @@ async function setupPage(session, isAdmin) {
     const section = document.getElementById("adminSection");
     if (section) section.style.display = "block";
     loadAdminDashboard();
-    loadNotifications(); // New: Load claim/found notifications for admin
+    loadNotifications(); 
   }
 
   // Home Page
@@ -111,6 +111,34 @@ async function setupPage(session, isAdmin) {
       window.location.href = "login.html";
     });
   }
+
+  // Upload Logic
+  const upForm = document.getElementById("uploadForm");
+  if (upForm) {
+    upForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = upForm.querySelector('button');
+      btn.innerText = "Uploading..."; btn.disabled = true;
+      try {
+        const file = upForm.querySelector('input[type="file"]').files[0];
+        const imageUrl = await uploadImage(file);
+        const { error } = await supabase.from("items").insert([{ 
+          title: upForm.querySelectorAll('input')[0].value,
+          type: upForm.querySelector('select').value,
+          category: upForm.querySelectorAll('select')[1].value,
+          description: upForm.querySelector('textarea').value,
+          location: upForm.querySelectorAll('input')[1].value,
+          date: upForm.querySelectorAll('input')[2].value,
+          image_url: imageUrl,
+          user_id: session.user.id,
+          status: 'pending'
+        }]);
+        if (error) throw error;
+        alert("Reported! Awaiting admin approval.");
+        window.location.href = "index.html";
+      } catch (err) { alert(err.message); btn.innerText = "Submit"; btn.disabled = false; }
+    });
+  }
 }
 
 // 5. ITEM RENDERING (With "I Found It" logic)
@@ -119,7 +147,6 @@ function renderItems(items) {
   if (!container) return;
 
   container.innerHTML = items.length ? items.map(item => {
-    // Check if item is LOST to change button text
     const isLostItem = item.type.toLowerCase() === 'lost';
     const buttonText = isLostItem ? "I Found It" : "Claim Item";
     const actionType = isLostItem ? "found_report" : "claim_request";
@@ -128,7 +155,7 @@ function renderItems(items) {
       <div class="card">
         <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover;">
         <div style="padding: 1.5rem;">
-          <span class="badge ${item.type}">${item.type}</span>
+          <span class="badge ${item.type}">${item.type.toUpperCase()}</span>
           <h3>${item.title}</h3>
           <p>📍 ${item.location}</p>
           <button onclick="window.notifyAdmin('${item.id}', '${item.title}', '${actionType}')" 
@@ -165,7 +192,6 @@ async function loadNotifications() {
   const { data: notes } = await supabase.from("notifications").select("*").order("created_at", { ascending: false });
   const adminSection = document.getElementById("adminSection");
   
-  // Create notification area if it doesn't exist
   let notifyTable = document.getElementById("notifyTableBody");
   if (!notifyTable) {
     const div = document.createElement('div');
@@ -227,6 +253,16 @@ async function loadAdminDashboard() {
       </tr>
     `).join("");
   }
+}
+
+async function uploadImage(file) {
+  if (!file) return "https://via.placeholder.com/200";
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", uploadPreset);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: "POST", body: formData });
+  const data = await res.json();
+  return data.secure_url;
 }
 
 window.updateStatus = async (id, status) => { await supabase.from("items").update({ status }).eq("id", id); location.reload(); };
