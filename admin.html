@@ -3,37 +3,60 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CampusRecover | Admin</title>
+  <title>CampusRecover | Admin Dashboard</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <nav class="navbar">
-  <h1>CampusRecover</h1>
-  <ul>
-    </ul>
-</nav>
+    <h1>CampusRecover Admin</h1>
+    <ul></ul>
+  </nav>
 
-  <section id="adminSection" style="display:none;" class="dashboard">
-    <h2 style="margin-bottom: 2rem;">Admin Dashboard</h2>
+  <section id="adminSection" style="display:none; padding: 2rem;">
+    
+    <div style="display: flex; gap: 20px; margin-bottom: 2rem;">
+      <div style="flex: 1; background: #2563eb; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+        <h4 style="margin:0;">Total</h4>
+        <p id="adminTotal" style="font-size: 1.5rem; font-weight: bold; margin:0;">0</p>
+      </div>
+      <div style="flex: 1; background: #ef4444; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+        <h4 style="margin:0;">Lost</h4>
+        <p id="adminLost" style="font-size: 1.5rem; font-weight: bold; margin:0;">0</p>
+      </div>
+      <div style="flex: 1; background: #10b981; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+        <h4 style="margin:0;">Found</h4>
+        <p id="adminFound" style="font-size: 1.5rem; font-weight: bold; margin:0;">0</p>
+      </div>
+    </div>
+
     <div class="table-container">
+      <h3>Manage Submissions</h3>
       <table>
         <thead>
           <tr>
             <th>Item</th>
-            <th>Status</th>
-            <th>Type</th>
-            <th>Date</th>
+            <th>Admin Message</th>
+            <th>Location</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody id="adminTableBody"></tbody>
       </table>
     </div>
+
+    <div class="table-container" style="margin-top: 3rem;">
+      <h3>User Activity</h3>
+      <table>
+        <thead>
+          <tr><th>User</th><th>Item</th><th>Action</th></tr>
+        </thead>
+        <tbody id="notifyTableBody"></tbody>
+      </table>
+    </div>
   </section>
 
   <section id="accessDenied" style="display:none; text-align: center; padding: 5rem 2rem;">
     <h2>Access Denied</h2>
-    <p>You do not have permission to view this page.</p>
     <a href="index.html">Return Home</a>
   </section>
 
