@@ -79,13 +79,12 @@ async function setupPage(session, isAdmin) {
 
   if (!session) return;
 
-  // Home Page logic
+  // Home Page logic (Search & Filter)
   if (document.getElementById("itemsContainer")) {
     const { data } = await supabase.from("items").select("*").eq("status", "approved");
     allItems = data || [];
     renderItems(allItems);
 
-    // Setup Search/Filter Listeners
     const searchInput = document.getElementById("searchInput");
     const typeFilter = document.getElementById("typeFilter");
     const categoryFilter = document.getElementById("categoryFilter");
@@ -125,6 +124,7 @@ async function setupPage(session, isAdmin) {
     });
   }
 
+  // REPORT UPLOAD LOGIC
   const upForm = document.getElementById("uploadForm");
   if (upForm) {
     upForm.addEventListener("submit", async (e) => {
@@ -134,21 +134,35 @@ async function setupPage(session, isAdmin) {
       try {
         const file = upForm.querySelector('input[type="file"]').files[0];
         const imageUrl = await uploadImage(file);
+        
+        // Mapped to match your HTML structure exactly:
+        const typeValue = upForm.querySelectorAll('select')[0].value;
+        const titleValue = upForm.querySelectorAll('input')[0].value;    // First text input
+        const categoryValue = upForm.querySelectorAll('select')[1].value; // Second dropdown
+        const descValue = upForm.querySelector('textarea').value;
+        const locValue = upForm.querySelectorAll('input')[1].value;      // Second text input
+        const dateValue = upForm.querySelectorAll('input')[2].value;     // Third input (Date)
+
         const { error } = await supabase.from("items").insert([{ 
-          title: upForm.querySelectorAll('input')[0].value,
-          type: upForm.querySelector('select').value,
-          category: upForm.querySelectorAll('select')[1].value,
-          description: upForm.querySelector('textarea').value,
-          location: upForm.querySelectorAll('input')[1].value,
-          date: upForm.querySelectorAll('input')[2].value,
+          type: typeValue,
+          title: titleValue,
+          category: categoryValue,
+          description: descValue,
+          location: locValue,
+          date: dateValue,
           image_url: imageUrl,
           user_id: session.user.id,
           status: 'pending'
         }]);
+
         if (error) throw error;
         alert("Reported! Please bring the item to the Admin Office for verification.");
         window.location.href = "index.html";
-      } catch (err) { alert(err.message); btn.innerText = "Submit"; btn.disabled = false; }
+      } catch (err) { 
+        alert(err.message); 
+        btn.innerText = "Submit Report"; 
+        btn.disabled = false; 
+      }
     });
   }
 }
