@@ -9,7 +9,6 @@ const cloudName = "daxarj70f";
 const uploadPreset = "unsigned_upload"; 
 
 // --- THE CRITICAL SETTING ---
-// Ensure this is EXACTLY what is in your Supabase Auth table
 const ADMIN_EMAIL = 'admin@campus.com'; 
 
 // 2. THE GATEKEEPER
@@ -18,34 +17,34 @@ document.addEventListener("DOMContentLoaded", async () => {
   const path = window.location.pathname;
   const isAuthPage = path.includes("login.html") || path.includes("register.html");
 
-  // If not logged in and not on login/reg, go to login
+  // Authentication Guard
   if (!session && !isAuthPage) {
     window.location.href = "login.html";
     return;
   }
 
-  // --- ADMIN LOGIC DEBUGGER ---
+  // Admin Validation Logic
+  // Using .trim() and .toLowerCase() to prevent matching errors
   const userEmail = session?.user?.email || "";
   const isAdmin = userEmail.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
 
-  console.log("--- Auth Debugger ---");
-  console.log("Logged in as:", userEmail);
-  console.log("Target Admin Email:", ADMIN_EMAIL);
-  console.log("Is Admin Match?:", isAdmin);
+  // Debugging (Check your F12 console if this still fails)
+  console.log("Current User:", userEmail);
+  console.log("Is Admin:", isAdmin);
 
-  // If logged in but on auth page, go home
   if (session && isAuthPage) {
     window.location.href = "index.html";
     return;
   }
 
-  // Protect Admin Page: If on admin.html and NOT admin, kick to index
+  // Page protection: Only kicks you out if you are specifically on admin.html
   if (path.includes("admin.html") && !isAdmin) {
-    console.error("Access Denied: Redirecting to Home");
+    alert("Access Denied: Admin privileges required.");
     window.location.href = "index.html";
     return;
   }
 
+  // Initialize UI & Logic
   renderNavbar(session, isAdmin);
   setupPageLogic(session, isAdmin);
 });
@@ -61,13 +60,14 @@ function renderNavbar(session, isAdmin) {
       <li><a href="register.html">Register</a></li>
     `;
   } else {
+    // Start with standard links
     let navHTML = `
       <li><a href="index.html">Home</a></li>
       <li><a href="upload.html">Report</a></li>
       <li><a href="profile.html">Profile</a></li>
     `;
     
-    // Only add admin link if logic passed
+    // Append Admin link only if check passed
     if (isAdmin) {
       navHTML += `<li><a href="admin.html">Admin</a></li>`;
     }
@@ -75,7 +75,7 @@ function renderNavbar(session, isAdmin) {
     navUl.innerHTML = navHTML;
   }
 
-  // Highlight active link
+  // Set active state
   const currentPath = window.location.pathname;
   document.querySelectorAll('.navbar a').forEach(link => {
     if (currentPath.includes(link.getAttribute('href'))) {
@@ -110,6 +110,7 @@ async function handleAuth(e, type) {
 
 // 5. PAGE LOGIC
 async function setupPageLogic(session, isAdmin) {
+  // Forms
   const loginForm = document.getElementById("loginForm");
   if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
   
@@ -118,17 +119,25 @@ async function setupPageLogic(session, isAdmin) {
 
   if (!session) return;
 
-  // Profile Logic
-  if (document.getElementById("userEmail")) {
-    document.getElementById("userEmail").innerText = session.user.email;
+  // Profile Page Setup
+  const userEmailDisplay = document.getElementById("userEmail");
+  if (userEmailDisplay) {
+    userEmailDisplay.innerText = session.user.email;
     const roleTag = document.getElementById("userRole");
+    const avatar = document.getElementById("avatarText");
     
-    if (isAdmin) {
-      roleTag.innerText = "Admin";
-      roleTag.style.background = "#ef4444"; 
-      roleTag.style.color = "white";
-    } else {
-      roleTag.innerText = "User";
+    if (avatar) avatar.innerText = session.user.email[0].toUpperCase();
+    
+    if (roleTag) {
+      if (isAdmin) {
+        roleTag.innerText = "Admin";
+        roleTag.style.background = "#ef4444"; 
+        roleTag.style.color = "white";
+      } else {
+        roleTag.innerText = "User";
+        roleTag.style.background = "#dcfce7";
+        roleTag.style.color = "#166534";
+      }
     }
   }
 
@@ -141,20 +150,20 @@ async function setupPageLogic(session, isAdmin) {
     });
   }
 
-  // Admin Dashboard
+  // Admin Dashboard Loading
   if (window.location.pathname.includes("admin.html") && isAdmin) {
     const section = document.getElementById("adminSection");
     if (section) section.style.display = "block";
     loadAdminDashboard();
   }
 
-  // Load Items for Home
+  // Home Page Gallery
   if (document.getElementById("itemsContainer")) {
     const { data } = await supabase.from("items").select("*").eq("status", "approved");
     renderItems(data || []);
   }
 
-  // Report/Upload Form
+  // Item Upload Form
   const upForm = document.getElementById("uploadForm");
   if (upForm) {
     upForm.addEventListener("submit", async (e) => {
@@ -165,6 +174,7 @@ async function setupPageLogic(session, isAdmin) {
       try {
         const file = upForm.querySelector('input[type="file"]').files[0];
         const imageUrl = await uploadImage(file);
+        
         const { error } = await supabase.from("items").insert([{ 
           title: upForm.querySelectorAll('input')[0].value,
           type: upForm.querySelector('select').value,
@@ -176,15 +186,20 @@ async function setupPageLogic(session, isAdmin) {
           user_id: session.user.id,
           status: 'pending'
         }]);
+
         if (error) throw error;
-        alert("Reported! Waiting for admin approval.");
+        alert("Success! Awaiting admin approval.");
         window.location.href = "index.html";
-      } catch (err) { alert(err.message); btn.innerText = "Submit"; btn.disabled = false; }
+      } catch (err) { 
+        alert(err.message); 
+        btn.innerText = "Submit"; 
+        btn.disabled = false; 
+      }
     });
   }
 }
 
-// 6. HELPERS & GLOBALS
+// 6. HELPERS
 async function uploadImage(file) {
   if (!file) return "https://via.placeholder.com/200";
   const formData = new FormData();
@@ -215,6 +230,7 @@ async function loadAdminDashboard() {
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   const tableBody = document.getElementById("adminTableBody");
   if (!tableBody || !items) return;
+
   tableBody.innerHTML = items.map(item => `
     <tr>
       <td>${item.title}</td>
@@ -229,6 +245,17 @@ async function loadAdminDashboard() {
   `).join("");
 }
 
-window.updateStatus = async (id, status) => { await supabase.from("items").update({ status }).eq("id", id); location.reload(); };
-window.deleteItem = async (id) => { if(confirm("Delete?")) { await supabase.from("items").delete().eq("id", id); location.reload(); } };
-window.claimItem = () => alert("Claim request sent!");
+// 7. WINDOW GLOBALS
+window.updateStatus = async (id, status) => { 
+  await supabase.from("items").update({ status }).eq("id", id); 
+  location.reload(); 
+};
+
+window.deleteItem = async (id) => { 
+  if(confirm("Delete this item permanently?")) { 
+    await supabase.from("items").delete().eq("id", id); 
+    location.reload(); 
+  } 
+};
+
+window.claimItem = () => alert("Claim request sent to the uploader!");
