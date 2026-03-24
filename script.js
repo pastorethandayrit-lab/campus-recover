@@ -5,8 +5,8 @@ const supabaseUrl = "https://wdwvnojjjiodrtyrutgz.supabase.co";
 const supabaseKey = "sb_publishable_o5Ah6hay4s3LIFV0dRrQtA_gmQoMDlI";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const cloudName = "daxarj70f"; 
-const uploadPreset = "unsigned_upload"; 
+const cloudName = "daxarj70f";
+const uploadPreset = "unsigned_upload";
 
 // 2. IMAGE UPLOAD
 async function uploadImage(file) {
@@ -57,12 +57,10 @@ async function loadAdminDashboard() {
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   const { data: claims } = await supabase.from("claims").select("*, items(title)").order("created_at", { ascending: false });
 
-  // Update Stats
   if(document.getElementById("totalItems")) document.getElementById("totalItems").textContent = items?.length || 0;
   if(document.getElementById("activeLost")) document.getElementById("activeLost").textContent = items?.filter(i => i.type === 'lost').length || 0;
   if(document.getElementById("activeFound")) document.getElementById("activeFound").textContent = items?.filter(i => i.type === 'found').length || 0;
   
-  // Items Table
   const tableBody = document.getElementById("adminTableBody");
   if (tableBody && items) {
     tableBody.innerHTML = items.map(item => `
@@ -77,7 +75,6 @@ async function loadAdminDashboard() {
       </tr>`).join("");
   }
 
-  // Claims List with Allow/Reject
   const claimsList = document.getElementById("claimsList");
   if (claimsList && claims) {
     if (claims.length === 0) {
@@ -101,7 +98,6 @@ async function loadAdminDashboard() {
   }
 }
 
-// Global Admin Functions
 window.updateStatus = async (id, status) => {
   await supabase.from("items").update({ status }).eq("id", id);
   loadAdminDashboard();
@@ -149,12 +145,23 @@ function renderItems(items) {
   `).join("");
 }
 
-// 7. INITIALIZE
+// 7. INITIALIZE & GATEKEEPER
 document.addEventListener("DOMContentLoaded", async () => {
+  // --- GATEKEEPER START ---
+  const { data: { session } } = await supabase.auth.getSession();
+  const publicPages = ["login.html", "register.html", "index.html"];
+  const currentPage = window.location.pathname.split("/").pop() || "index.html";
+
+  if (!session && !publicPages.includes(currentPage)) {
+    alert("Access Denied. Please sign in to continue.");
+    window.location.href = "login.html";
+    return;
+  }
+  // --- GATEKEEPER END ---
+
   const { data: recent } = await supabase.from("items").select("*").eq("status", "approved").order("created_at", { ascending: false }).limit(6);
   if (recent) renderItems(recent);
 
-  const { data: { session } } = await supabase.auth.getSession();
   if (session) {
     if (document.getElementById("userEmail")) document.getElementById("userEmail").textContent = session.user.email;
     if (document.getElementById("avatarText")) document.getElementById("avatarText").textContent = session.user.email[0].toUpperCase();
@@ -166,9 +173,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("adminSection").style.display = "block";
       loadAdminDashboard();
     }
+    
+    // Admin Page Access Control
+    if (currentPage === "admin.html" && profile?.role !== "admin") {
+        window.location.href = "index.html";
+    }
   }
 
-  // Form Listeners
   if (document.getElementById("loginForm")) document.getElementById("loginForm").addEventListener("submit", (e) => handleAuth(e, 'login'));
   if (document.getElementById("registerForm")) document.getElementById("registerForm").addEventListener("submit", (e) => handleAuth(e, 'register'));
   
