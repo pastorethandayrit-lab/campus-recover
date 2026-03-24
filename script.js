@@ -10,6 +10,7 @@ const uploadPreset = "unsigned_upload";
 
 // 2. IMAGE UPLOAD
 async function uploadImage(file) {
+  if (!file) return "https://via.placeholder.com/200";
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", uploadPreset);
@@ -25,7 +26,6 @@ async function handleAuth(e, type) {
   const email = e.target.querySelector("input[type=email]").value;
   const password = e.target.querySelector("input[type=password]").value;
   
-  // FIXED: Added { data } to ensure session is captured
   const { data, error } = type === 'login' 
     ? await supabase.auth.signInWithPassword({ email, password })
     : await supabase.auth.signUp({ email, password });
@@ -33,7 +33,8 @@ async function handleAuth(e, type) {
   if (error) {
     alert(error.message);
   } else {
-    alert(type === 'login' ? "Logged in!" : "Registered!");
+    // Force session to save
+    await supabase.auth.setSession(data.session);
     window.location.href = "index.html";
   }
 }
@@ -61,17 +62,17 @@ function renderItems(items) {
   `).join("");
 }
 
-// 5. INITIALIZE PAGE LOGIC
+// 5. INITIALIZE LOGIC
 document.addEventListener("DOMContentLoaded", async () => {
   const { data: { session } } = await supabase.auth.getSession();
 
-  // Load items for Home Page
+  // Load Home Data
   if (document.getElementById("itemsContainer")) {
     const { data } = await supabase.from("items").select("*").eq("status", "approved").order("created_at", { ascending: false });
     if (data) renderItems(data);
   }
 
-  // Auth Listeners
+  // Auth Forms
   if (document.getElementById("loginForm")) document.getElementById("loginForm").addEventListener("submit", (e) => handleAuth(e, 'login'));
   if (document.getElementById("registerForm")) document.getElementById("registerForm").addEventListener("submit", (e) => handleAuth(e, 'register'));
 
@@ -82,50 +83,43 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.location.href = "login.html";
   });
 
-  // Report Form Logic
+  // Report Logic
   const upForm = document.getElementById("uploadForm");
   if (upForm) {
     upForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       if (!session) return alert("Please sign in first!");
+      
       const btn = e.target.querySelector('button[type="submit"]');
       btn.innerText = "Processing..."; btn.disabled = true;
 
       try {
-        const fields = e.target.querySelectorAll("input, select, textarea");
-        const fileInput = e.target.querySelector('input[type="file"]'); // FIXED: More reliable file selection
+        const fileInput = e.target.querySelector('input[type="file"]');
         const imageUrl = await uploadImage(fileInput.files[0]);
         
         await supabase.from("items").insert([{ 
-          type: fields[0].value, 
-          title: fields[1].value, 
-          category: fields[2].value, 
-          description: fields[3].value, 
-          location: fields[4].value, 
-          date: fields[5].value,
+          type: e.target.querySelector('select').value, 
+          title: e.target.querySelectorAll('input')[0].value, 
+          category: e.target.querySelectorAll('select')[1].value, 
+          description: e.target.querySelector('textarea').value, 
+          location: e.target.querySelectorAll('input')[1].value, 
+          date: e.target.querySelectorAll('input')[2].value,
           status: 'pending', 
           image_url: imageUrl, 
-          user_id: session.user.id // FIXED: Using session user id
+          user_id: session.user.id 
         }]);
-        
+
         alert("Success! Waiting for admin approval.");
         window.location.href = "index.html";
-      } catch (err) { 
-        alert(err.message); 
-        btn.innerText = "Submit Report"; 
-        btn.disabled = false; 
-      }
+      } catch (err) { alert(err.message); btn.innerText = "Submit Report"; btn.disabled = false; }
     });
   }
 
-  // Admin Logic
+  // Admin Protection
   if (window.location.pathname.includes("admin.html")) {
-    // FIXED: Added a small delay to ensure session is checked
-    if (!session || session.user.email !== 'admin@campus.com') { 
-      const adminSec = document.getElementById("adminSection");
-      const deniedSec = document.getElementById("accessDenied");
-      if(adminSec) adminSec.style.display = "none";
-      if(deniedSec) deniedSec.style.display = "block";
+    if (!session || session.user.email !== 'admin@campus.com') {
+      document.getElementById("adminSection").style.display = "none";
+      document.getElementById("accessDenied").style.display = "block";
     } else {
       document.getElementById("adminSection").style.display = "block";
       loadAdminDashboard();
@@ -133,7 +127,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
-// Admin Dashboard Function
+// Admin Dashboard
 async function loadAdminDashboard() {
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   const tableBody = document.getElementById("adminTableBody");
@@ -153,27 +147,20 @@ async function loadAdminDashboard() {
   `).join("");
 }
 
-// Global window functions
+// Window Globals
 window.updateStatus = async (id, status) => {
   await supabase.from("items").update({ status }).eq("id", id);
   location.reload();
 };
-
 window.deleteItem = async (id) => {
-  if (confirm("Delete this item?")) {
+  if (confirm("Delete?")) {
     await supabase.from("items").delete().eq("id", id);
     location.reload();
   }
 };
-
 window.claimItem = async (itemId) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return window.location.href = "login.html";
-  const { error } = await supabase.from("claims").insert([{ 
-    item_id: itemId, 
-    claimer_id: session.user.id, 
-    claimer_email: session.user.email, 
-    status: 'pending' 
-  }]);
-  if (error) alert(error.message); else alert("Claim request sent!");
+  await supabase.from("claims").insert([{ item_id: itemId, claimer_id: session.user.id, claimer_email: session.user.email, status: 'pending' }]);
+  alert("Claim sent!");
 };
