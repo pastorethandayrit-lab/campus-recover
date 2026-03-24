@@ -318,3 +318,72 @@ button.secondary {
 .btn-claim:hover {
   background-color: #eab308;
 }
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column; /* Stack Title and Links */
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .navbar ul {
+    margin-top: 1rem;
+    flex-wrap: wrap; /* Allow links to go to the next line */
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .navbar ul li a {
+    font-size: 0.9rem;
+    padding: 5px;
+  }
+}
+
+/* --- NEW MOBILE VIEW (Triggered on screens smaller than 768px) --- */
+@media (max-width: 768px) {
+  /* Stack the navbar vertically */
+  .navbar {
+    flex-direction: column;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .navbar ul {
+    margin-top: 1rem;
+    flex-wrap: wrap; /* Allows links to wrap if there are too many */
+    justify-content: center;
+    gap: 0.8rem;
+  }
+
+  /* Make the hero text smaller to fit phone screens */
+  .hero h2 {
+    font-size: 1.5rem;
+  }
+
+  /* Force the grid to 1 column on mobile */
+  .items-grid {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+
+  /* Stack admin stats cards vertically */
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  /* Make tables scrollable sideways so they don't break the layout */
+  .container {
+    width: 100%;
+    overflow-x: auto;
+  }
+  
+  table {
+    min-width: 500px; /* Ensures table doesn't gets too squished */
+  }
+
+  /* Adjust forms for small screens */
+  form {
+    padding: 1.5rem;
+  }
+}
