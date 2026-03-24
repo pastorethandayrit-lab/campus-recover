@@ -7,12 +7,11 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Navbar -->
   <nav class="navbar">
     <h1>CampusRecover</h1>
     <ul>
       <li><a href="index.html">Home</a></li>
-      <li><a href="upload.html">Report</a></li>
+      <li><a href="upload.html" class="active">Report</a></li>
       <li><a href="admin.html">Admin</a></li>
       <li><a href="login.html">Sign In</a></li>
       <li><a href="register.html">Register</a></li>
@@ -20,55 +19,64 @@
     </ul>
   </nav>
 
-  <section class="form-section">
-    <form id="uploadForm">
-      <h2>Report an Item</h2>
-      <div class="form-group">
-        <label>Select Type</label>
-        <select required>
-          <option value="">-- Select --</option>
-          <option value="lost">Lost (I lost something)</option>
-          <option value="found">Found (I found something)</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Item Title</label>
-        <input type="text" required>
-      </div>
-      <div class="form-group">
-        <label>Category</label>
-        <select required>
-          <option value="">-- Select Category --</option>
-          <option value="electronics">Electronics</option>
-          <option value="accessories">Accessories</option>
-          <option value="books">Books</option>
-          <option value="others">Others</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Description</label>
-        <textarea required></textarea>
-      </div>
-      <div class="form-group">
-        <label>Location</label>
-        <input type="text" required>
-      </div>
-      <div class="form-group">
-        <label>Date</label>
-        <input type="date" required>
-      </div>
-      <div class="form-group">
-        <label>Item Image</label>
-        <input type="file" id="itemImage" accept="image/*" required>
-      </div>
-      <div class="form-actions">
-        <button type="button" class="secondary">Cancel</button>
-        <button type="submit" class="primary">Submit Report</button>
-      </div>
-    </form>
-  </section>
+  <main class="dashboard">
+    <section class="form-section">
+      <form id="uploadForm" style="max-width: 600px; margin: 0 auto;">
+        <h2 style="margin-bottom: 1.5rem; text-align: center;">Report an Item</h2>
+        
+        <div class="form-group">
+          <label>Select Type</label>
+          <select required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd;">
+            <option value="">-- Select --</option>
+            <option value="lost">Lost (I lost something)</option>
+            <option value="found">Found (I found something)</option>
+          </select>
+        </div>
 
-  <!-- Link your upload.js here -->
- <script type="module" src="script.js"></script>
+        <div class="form-group">
+          <label>Item Title</label>
+          <input type="text" placeholder="e.g. Blue Water Bottle" required>
+        </div>
+
+        <div class="form-group">
+          <label>Category</label>
+          <select required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd;">
+            <option value="">-- Select Category --</option>
+            <option value="electronics">Electronics</option>
+            <option value="accessories">Accessories</option>
+            <option value="books">Books</option>
+            <option value="others">Others</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Description</label>
+          <textarea placeholder="Provide details like brand, color, or distinguishing marks..." required style="min-height: 100px;"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Location</label>
+          <input type="text" placeholder="Where was it lost/found?" required>
+        </div>
+
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" required>
+        </div>
+
+        <div class="form-group">
+          <label>Item Image</label>
+          <input type="file" id="itemImage" accept="image/*" required style="border: none; padding: 0;">
+        </div>
+
+        <div class="form-actions" style="display: flex; gap: 10px; margin-top: 2rem;">
+          <button type="button" class="btn-delete" style="flex: 1; padding: 12px; background: #666;" onclick="window.location.href='index.html'">Cancel</button>
+          <button type="submit" class="btn-approve" style="flex: 2; padding: 12px;">Submit Report</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script type="module" src="script.js"></script>
 </body>
 </html>
