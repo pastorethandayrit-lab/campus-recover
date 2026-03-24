@@ -69,7 +69,6 @@ function renderNavbar(session, isAdmin) {
 
 // 4. PAGE INITIALIZATION
 async function setupPage(session, isAdmin) {
-  // ATTACH AUTH LISTENERS FIRST (Fixes login issues)
   const loginForm = document.getElementById("loginForm");
   if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
   const regForm = document.getElementById("registerForm");
@@ -141,7 +140,7 @@ async function setupPage(session, isAdmin) {
   }
 }
 
-// 5. ITEM RENDERING (Updated with Expanding Details & Admin Note)
+// 5. ITEM RENDERING
 function renderItems(items) {
   const container = document.getElementById("itemsContainer");
   if (!container) return;
@@ -151,6 +150,7 @@ function renderItems(items) {
     const buttonText = isLostItem ? "I Found It" : "Claim Item";
     const actionType = isLostItem ? "found_report" : "claim_request";
     const detailsId = `details-${item.id}`;
+    const formattedDate = new Date(item.date).toLocaleDateString();
 
     return `
       <div class="card">
@@ -161,6 +161,7 @@ function renderItems(items) {
           
           <div style="background: #f0f7ff; padding: 10px; border-radius: 6px; border: 1px solid #cce3ff; margin: 10px 0;">
             <p style="font-size: 0.9rem; color: #1e40af; margin: 0;">📍 <strong>Location:</strong> ${item.location}</p>
+            <p style="font-size: 0.8rem; color: #1e40af; margin-top: 4px;">📅 <strong>Date:</strong> ${formattedDate}</p>
           </div>
 
           <div id="${detailsId}" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc;">
@@ -185,7 +186,7 @@ function renderItems(items) {
   }).join("") : `<p>No items found.</p>`;
 }
 
-// 6. ACTION HELPERS
+// 6. ACTION HELPERS (Attached to window for HTML access)
 window.toggleDetails = (id, btn) => {
   const el = document.getElementById(id);
   const isHidden = el.style.display === "none";
@@ -224,7 +225,7 @@ async function loadNotifications() {
   }
 }
 
-// 7. AUTH & ADMIN HELPERS
+// 7. AUTH & ADMIN HELPERS (Attached to window for HTML access)
 async function handleAuth(e, type) {
   e.preventDefault();
   const email = e.target.querySelector("input[type=email]").value;
@@ -243,7 +244,6 @@ async function loadAdminDashboard() {
   const tableBody = document.getElementById("adminTableBody");
   
   if (items) {
-    // Update Stats
     if(document.getElementById("adminTotal")) document.getElementById("adminTotal").innerText = items.length;
     if(document.getElementById("adminLost")) document.getElementById("adminLost").innerText = items.filter(i => i.type === 'lost').length;
     if(document.getElementById("adminFound")) document.getElementById("adminFound").innerText = items.filter(i => i.type === 'found').length;
@@ -251,7 +251,7 @@ async function loadAdminDashboard() {
     if (tableBody) {
       tableBody.innerHTML = items.map(item => `
         <tr>
-          <td>${item.title}</td>
+          <td>${item.title}<br><small style="color:gray;">${new Date(item.date).toLocaleDateString()}</small></td>
           <td>
             <input type="text" id="note-${item.id}" placeholder="Note..." value="${item.admin_note || ''}" 
                    style="padding: 5px; width: 100px; border: 1px solid #ddd; border-radius: 4px;">
@@ -263,7 +263,7 @@ async function loadAdminDashboard() {
           <td>
             <div style="display: flex; gap: 5px;">
               ${item.status === 'pending' ? `<button onclick="window.approveWithNote('${item.id}')" class="btn-approve">Approve</button>` : '✅'}
-              <button onclick="window.deleteItem('${item.id}')" class="btn-delete" style="background:#ef4444; color:white; border:none; border-radius:4px; padding:5px;">Del</button>
+              <button onclick="window.deleteItem('${item.id}')" class="btn-delete" style="background:#ef4444; color:white; border:none; border-radius:4px; padding:5px; cursor:pointer;">Del</button>
             </div>
           </td>
         </tr>
