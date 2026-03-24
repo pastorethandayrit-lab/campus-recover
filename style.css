@@ -249,3 +249,24 @@ table th { background: #facc15; }
     margin-bottom: 5px;
   }
 }
+
+@media (max-width: 768px) {
+  /* This targets the new class we added */
+  .table-container {
+    overflow-x: auto !important; /* Forces the ability to swipe left/right */
+    display: block;
+    width: 100%;
+    -webkit-overflow-scrolling: touch; /* Makes swiping smooth on iPhone */
+  }
+
+  table {
+    min-width: 600px; /* Forces the table to stay wide so buttons don't vanish */
+  }
+
+  /* Make sure the action buttons don't stack and look weird */
+  .btn-approve, .btn-delete {
+    display: inline-block;
+    margin-bottom: 5px;
+    white-space: nowrap;
+  }
+}
