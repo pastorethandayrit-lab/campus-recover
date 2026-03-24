@@ -83,8 +83,18 @@ async function setupPage(session, isAdmin) {
   if (window.location.pathname.includes("profile.html")) {
     const emailDisplay = document.getElementById("userEmail");
     const roleDisplay = document.getElementById("userRole");
+    const nameDisplay = document.getElementById("displayUsername");
+    const avatarText = document.getElementById("avatarText");
+
     if (emailDisplay) emailDisplay.innerText = session.user.email;
     if (roleDisplay) roleDisplay.innerText = isAdmin ? "Administrator" : "User";
+
+    // Fetch Username for Profile
+    const { data: profile } = await supabase.from('profiles').select('username').eq('id', session.user.id).single();
+    if (profile?.username) {
+        if (nameDisplay) nameDisplay.innerText = profile.username;
+        if (avatarText) avatarText.innerText = profile.username.charAt(0).toUpperCase();
+    }
   }
 
   // Home Page logic (Search & Filter)
@@ -236,6 +246,23 @@ window.notifyAdmin = async (itemId, itemTitle, actionType) => {
   }]);
   if (error) alert("Error: " + error.message);
   else alert(actionType === 'found_report' ? "Admin notified!" : "Claim request sent!");
+};
+
+window.saveUsername = async () => {
+    const newName = document.getElementById("usernameInput").value;
+    if (!newName) return alert("Please enter a name");
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const { error } = await supabase.from('profiles').update({ username: newName }).eq('id', session.user.id);
+
+    if (error) alert(error.message);
+    else {
+        const display = document.getElementById("displayUsername");
+        const avatar = document.getElementById("avatarText");
+        if (display) display.innerText = newName;
+        if (avatar) avatar.innerText = newName.charAt(0).toUpperCase();
+        alert("Username updated!");
+    }
 };
 
 // 7. ADMIN FUNCTIONS

@@ -6,63 +6,46 @@
   <title>CampusRecover | Profile</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    /* Specific styles for the Profile Avatar to make it look modern */
     .profile-avatar {
-      width: 80px;
-      height: 80px;
-      background: #facc15;
-      color: #222;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 2rem;
-      font-weight: bold;
-      margin: 0 auto 1.5rem;
+      width: 80px; height: 80px; background: #facc15; color: #222;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; font-weight: bold; margin: 0 auto 1.5rem;
       box-shadow: 0 4px 10px rgba(250, 204, 21, 0.3);
     }
-    .profile-card {
-      text-align: center;
-      padding: 2.5rem;
-    }
-    .profile-info {
-      text-align: left;
-      background: #f9fafb;
-      padding: 1.5rem;
-      border-radius: 8px;
-      margin-bottom: 2rem;
-    }
     .profile-info p {
-      margin-bottom: 0.8rem;
-      border-bottom: 1px solid #eee;
-      padding-bottom: 0.5rem;
+      margin-bottom: 0.8rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;
     }
   </style>
 </head>
 <body>
   <nav class="navbar">
-  <h1>CampusRecover</h1>
-  <ul>
-    </ul>
-</nav>
+    <h1>CampusRecover</h1>
+    <ul></ul>
+  </nav>
 
   <main class="dashboard">
     <section class="form-section">
-      <div class="profile-card card" style="max-width: 450px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+      <div class="card" style="max-width: 450px; margin: 0 auto; padding: 2.5rem; text-align: center;">
         
-        <div class="profile-avatar" id="avatarCircle">
+        <div class="profile-avatar">
           <span id="avatarText">U</span>
         </div>
 
-        <h2 style="margin-bottom: 1.5rem;">Your Account</h2>
+        <h2 id="displayUsername" style="margin-bottom: 1.5rem;">User Account</h2>
         
-        <div class="profile-info">
-          <p><strong>Email:</strong> <span id="userEmail" style="color: #555;">Loading...</span></p>
-          <p><strong>Role:</strong> <span id="userRole" class="status-tag approved" style="display: inline-block;">User</span></p>
+        <div style="text-align: left; background: #f9fafb; padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem;">
+          <div class="profile-info">
+            <p><strong>Email:</strong> <span id="userEmail">Loading...</span></p>
+            <p><strong>Role:</strong> <span id="userRole">User</span></p>
+          </div>
+          
+          <label style="font-size: 0.75rem; font-weight: bold; color: #666; display: block; margin-bottom: 5px;">UPDATE NAME</label>
+          <input type="text" id="usernameInput" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; margin-bottom:10px;" placeholder="New username...">
+          <button onclick="window.saveUsername()" style="width:100%; background:#facc15; color:#222; padding:10px; border-radius:8px;">Save Name</button>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 10px;">
-          <button id="logoutBtn" class="btn-delete" style="width: 100%; padding: 12px;">Logout from Account</button>
+          <button id="logoutBtn" style="background:#ef4444; color:white; padding:12px; border-radius:8px;">Logout</button>
           <a href="index.html" style="text-decoration: none; color: #666; font-size: 0.9rem;">Back to Home</a>
         </div>
       </div>
