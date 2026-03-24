@@ -59,7 +59,7 @@ body {
 }
 
 table { width: 100%; border-collapse: collapse; text-align: left; }
-table th { background: #f9fafb; padding: 1rem; border-bottom: 1px solid #eee; }
+table th { background: #f9fafb; padding: 1rem; border-bottom: 1px solid #eee; font-weight: 600; }
 table td { padding: 1rem; border-bottom: 1px solid #eee; }
 
 /* --- 5. UI ELEMENTS --- */
@@ -73,9 +73,9 @@ table td { padding: 1rem; border-bottom: 1px solid #eee; }
 .status-tag.approved { background: #dcfce7; color: #166534; }
 .status-tag.pending { background: #fef3c7; color: #92400e; }
 
-.btn-approve { background: #22c55e; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
-.btn-reject { background: #f59e0b; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
-.btn-delete { background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+.btn-approve { background: #22c55e; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.btn-reject { background: #f59e0b; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.btn-delete { background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
 
 .empty-msg {
   color: #666;
@@ -86,7 +86,7 @@ table td { padding: 1rem; border-bottom: 1px solid #eee; }
   box-shadow: 0 4px 6px rgba(0,0,0,0.05);
 }
 
-/* --- 6. MOBILE UI OVERHAUL --- */
+/* --- 6. MOBILE UI LOGIC --- */
 .mobile-only { display: none; }
 .desktop-only { display: block; }
 
@@ -99,7 +99,6 @@ table td { padding: 1rem; border-bottom: 1px solid #eee; }
   
   .stats { grid-template-columns: 1fr; }
 
-  /* Mobile Card Design */
   .mobile-admin-card {
     background: white;
     padding: 1.2rem;
@@ -127,7 +126,6 @@ table td { padding: 1rem; border-bottom: 1px solid #eee; }
     font-size: 0.85rem;
   }
 
-  /* Claim Request Stacking */
   .claim-item-card {
     background: white;
     padding: 1.2rem;

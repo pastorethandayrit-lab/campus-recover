@@ -65,28 +65,29 @@ async function loadAdminDashboard() {
   if(document.getElementById("activeLost")) document.getElementById("activeLost").textContent = items?.filter(i => i.type === 'lost').length || 0;
   if(document.getElementById("activeFound")) document.getElementById("activeFound").textContent = items?.filter(i => i.type === 'found').length || 0;
   
-  // RENDER REPORTS (Desktop & Mobile)
   const tableBody = document.getElementById("adminTableBody");
   const mobileCards = document.getElementById("adminCardsMobile");
 
   if (items) {
-    // Desktop Table
+    // Desktop Table with Date
     tableBody.innerHTML = items.map(item => `
       <tr>
         <td>${item.title}</td>
         <td><span class="status-tag ${item.status}">${item.status}</span></td>
         <td>${item.type}</td>
+        <td>${item.date || 'N/A'}</td>
         <td>
           <button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>
           <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
         </td>
       </tr>`).join("");
 
-    // Mobile Cards
+    // Mobile Cards with Date
     mobileCards.innerHTML = items.map(item => `
       <div class="mobile-admin-card">
         <h4>${item.title} <span class="status-tag ${item.status}">${item.status}</span></h4>
-        <p style="font-size: 0.85rem; color: #666;">Type: ${item.type}</p>
+        <p style="font-size: 0.85rem; color: #666;">Type: <strong>${item.type}</strong></p>
+        <p style="font-size: 0.85rem; color: #666;">Date: <strong>${item.date || 'N/A'}</strong></p>
         <div class="admin-actions">
           <button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>
           <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
@@ -94,7 +95,6 @@ async function loadAdminDashboard() {
       </div>`).join("");
   }
 
-  // RENDER CLAIMS
   const claimsList = document.getElementById("claimsList");
   if (claimsList && claims) {
     if (claims.length === 0) {
@@ -165,7 +165,7 @@ function renderItems(items) {
   `).join("");
 }
 
-// 7. INITIALIZE & GATEKEEPER
+// 7. INITIALIZE
 document.addEventListener("DOMContentLoaded", async () => {
   const { data: { session } } = await supabase.auth.getSession();
   const publicPages = ["login.html", "register.html"]; 
@@ -202,7 +202,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Form Listeners
+  // Listeners
   if (document.getElementById("loginForm")) document.getElementById("loginForm").addEventListener("submit", (e) => handleAuth(e, 'login'));
   if (document.getElementById("registerForm")) document.getElementById("registerForm").addEventListener("submit", (e) => handleAuth(e, 'register'));
   
