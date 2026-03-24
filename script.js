@@ -8,38 +8,44 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const cloudName = "daxarj70f"; 
 const uploadPreset = "unsigned_upload"; 
 
-// 2. THE GATEKEEPER & ACCESS CONTROL
+// 2. THE GATEKEEPER
 document.addEventListener("DOMContentLoaded", async () => {
   const { data: { session } } = await supabase.auth.getSession();
   
   const path = window.location.pathname;
   const isAuthPage = path.includes("login.html") || path.includes("register.html");
 
-  // STRICT LOCKDOWN: If NOT logged in and NOT on login/register, kick to login
+  // Debug: Check this in your browser console (F12) if it still fails
+  if (session) console.log("Logged in as:", session.user.email);
+
+  // STRICT LOCKDOWN
   if (!session && !isAuthPage) {
     window.location.href = "login.html";
     return;
   }
 
-  // If logged in and trying to access login/register, go home
   if (session && isAuthPage) {
     window.location.href = "index.html";
     return;
   }
 
-  // Force Admin-Only Page Protection
-  if (path.includes("admin.html") && session?.user.email !== 'admin@campus.com') {
+  // Define Admin Email - Change this if your admin email is different!
+  const ADMIN_EMAIL = 'admin@campus.com'; 
+  const isAdmin = session?.user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
+  // Protect Admin Page
+  if (path.includes("admin.html") && !isAdmin) {
     window.location.href = "index.html";
     return;
   }
 
-  // Initialize UI
-  updateNavigation(session);
-  setupPageLogic(session);
+  // Update UI
+  updateNavigation(session, isAdmin);
+  setupPageLogic(session, isAdmin);
 });
 
-// 3. UI NAVIGATION CONTROL (Now with Admin check)
-function updateNavigation(session) {
+// 3. UI NAVIGATION
+function updateNavigation(session, isAdmin) {
   const navUl = document.querySelector('.navbar ul');
   if (!navUl) return;
 
@@ -49,30 +55,26 @@ function updateNavigation(session) {
       <li><a href="register.html">Register</a></li>
     `;
   } else {
-    const isAdmin = session.user.email === 'admin@campus.com';
     let navHTML = `
       <li><a href="index.html">Home</a></li>
       <li><a href="upload.html">Report</a></li>
       <li><a href="profile.html">Profile</a></li>
     `;
-
-    // Only add Admin tab if the email matches exactly
     if (isAdmin) {
       navHTML += `<li><a href="admin.html">Admin</a></li>`;
     }
-
     navUl.innerHTML = navHTML;
   }
 }
 
-// 4. AUTHENTICATION LOGIC
+// 4. AUTH LOGIC
 async function handleAuth(e, type) {
   e.preventDefault();
   const email = e.target.querySelector("input[type=email]").value;
   const password = e.target.querySelector("input[type=password]").value;
   const btn = e.target.querySelector('button');
   
-  btn.innerText = "Authenticating...";
+  btn.innerText = "Verifying...";
   btn.disabled = true;
 
   try {
@@ -83,8 +85,8 @@ async function handleAuth(e, type) {
     if (error) throw error;
 
     if (data.user) {
-      // Small delay to ensure session is stored in localStorage
-      setTimeout(() => { window.location.href = "index.html"; }, 500);
+      // Force a slight wait to ensure Supabase saves the session
+      setTimeout(() => { window.location.href = "index.html"; }, 800);
     }
   } catch (err) {
     alert(err.message);
@@ -93,20 +95,18 @@ async function handleAuth(e, type) {
   }
 }
 
-// 5. PAGE-SPECIFIC LOGIC
-async function setupPageLogic(session) {
-  if (!session) {
-    const loginForm = document.getElementById("loginForm");
-    if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
-    
-    const regForm = document.getElementById("registerForm");
-    if (regForm) regForm.addEventListener("submit", (e) => handleAuth(e, 'register'));
-    return;
-  }
+// 5. PAGE LOGIC
+async function setupPageLogic(session, isAdmin) {
+  // Forms
+  const loginForm = document.getElementById("loginForm");
+  if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
+  
+  const regForm = document.getElementById("registerForm");
+  if (regForm) regForm.addEventListener("submit", (e) => handleAuth(e, 'register'));
 
-  const isAdmin = session.user.email === 'admin@campus.com';
+  if (!session) return;
 
-  // Logout Logic
+  // Logout
   const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) {
     logoutBtn.addEventListener("click", async () => {
@@ -115,72 +115,37 @@ async function setupPageLogic(session) {
     });
   }
 
-  // Profile Page Logic
+  // Profile Card Fix
   if (document.getElementById("userEmail")) {
     document.getElementById("userEmail").innerText = session.user.email;
     document.getElementById("avatarText").innerText = session.user.email[0].toUpperCase();
     
     const roleTag = document.getElementById("userRole");
-    if (isAdmin) {
-      roleTag.innerText = "Admin";
-      roleTag.style.background = "#ef4444"; // Red for Admin
-      roleTag.style.color = "white";
-    } else {
-      roleTag.innerText = "User";
-      roleTag.style.background = "#dcfce7"; // Green for User
-      roleTag.style.color = "#166534";
+    if (roleTag) {
+      if (isAdmin) {
+        roleTag.innerText = "Admin";
+        roleTag.className = "status-tag approved";
+        roleTag.style.background = "#ef4444"; 
+        roleTag.style.color = "white";
+      } else {
+        roleTag.innerText = "User";
+        roleTag.className = "status-tag approved";
+        roleTag.style.background = "#dcfce7";
+        roleTag.style.color = "#166534";
+      }
     }
   }
 
-  // Admin Dashboard Loading
+  // Admin Panel
   if (window.location.pathname.includes("admin.html") && isAdmin) {
-    const adminSection = document.getElementById("adminSection");
-    if (adminSection) adminSection.style.display = "block";
+    document.getElementById("adminSection").style.display = "block";
     loadAdminDashboard();
   }
 
-  // Home Page (Items Grid)
+  // Data Loading
   if (document.getElementById("itemsContainer")) {
-    const { data } = await supabase.from("items")
-      .select("*")
-      .eq("status", "approved")
-      .order("created_at", { ascending: false });
+    const { data } = await supabase.from("items").select("*").eq("status", "approved");
     renderItems(data || []);
-  }
-
-  // Upload Form Logic
-  const upForm = document.getElementById("uploadForm");
-  if (upForm) {
-    upForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const btn = upForm.querySelector('button[type="submit"]');
-      btn.innerText = "Uploading..."; btn.disabled = true;
-
-      try {
-        const file = upForm.querySelector('input[type="file"]').files[0];
-        const imageUrl = await uploadImage(file);
-        
-        const { error } = await supabase.from("items").insert([{ 
-          type: upForm.querySelector('select').value, 
-          title: upForm.querySelectorAll('input')[0].value, 
-          category: upForm.querySelectorAll('select')[1].value, 
-          description: upForm.querySelector('textarea').value, 
-          location: upForm.querySelectorAll('input')[1].value, 
-          date: upForm.querySelectorAll('input')[2].value,
-          status: 'pending', 
-          image_url: imageUrl, 
-          user_id: session.user.id 
-        }]);
-
-        if (error) throw error;
-        alert("Report submitted! Awaiting admin approval.");
-        window.location.href = "index.html";
-      } catch (err) { 
-        alert(err.message); 
-        btn.innerText = "Submit Report"; 
-        btn.disabled = false; 
-      }
-    });
   }
 }
 
@@ -237,12 +202,10 @@ window.updateStatus = async (id, status) => {
 };
 
 window.deleteItem = async (id) => {
-  if (confirm("Delete this item?")) {
+  if (confirm("Delete this?")) {
     await supabase.from("items").delete().eq("id", id);
     location.reload();
   }
 };
 
-window.claimItem = async (itemId) => {
-  alert("Claim notification sent!");
-};
+window.claimItem = (itemId) => alert("Claim sent!");
