@@ -154,19 +154,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   // --- GATEKEEPER START ---
   const { data: { session } } = await supabase.auth.getSession();
   
-  // These pages are accessible to everyone
-  const publicPages = ["login.html", "register.html", "index.html", ""]; 
+  // Removed "index.html" and "" from this list to protect the Home page
+  const publicPages = ["login.html", "register.html"]; 
   const currentPage = window.location.pathname.split("/").pop();
 
-  // Redirect to login if accessing protected page while logged out
+  // If there's no session and the user is NOT on a login/register page, kick them to login
   if (!session && !publicPages.includes(currentPage)) {
-    alert("Please sign in to access this page.");
     window.location.href = "login.html";
     return;
   }
   // --- GATEKEEPER END ---
 
-  // Load public content (Recent Items)
+  // Load Recent Items (Only runs if user passes the gatekeeper)
   const { data: recent } = await supabase.from("items")
     .select("*")
     .eq("status", "approved")
@@ -174,20 +173,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     .limit(6);
   if (recent) renderItems(recent);
 
-  // If logged in, handle profile and admin access
   if (session) {
     if (document.getElementById("userEmail")) document.getElementById("userEmail").textContent = session.user.email;
     if (document.getElementById("avatarText")) document.getElementById("avatarText").textContent = session.user.email[0].toUpperCase();
 
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
-    
-    if (document.getElementById("userRole")) {
-        document.getElementById("userRole").textContent = profile?.role || "User";
-    }
+    if (document.getElementById("userRole")) document.getElementById("userRole").textContent = profile?.role || "User";
 
-    // Role-based gatekeeping for Admin page
+    // Admin Page Access Control
     if (currentPage === "admin.html" && profile?.role !== "admin") {
-        alert("Admin access only.");
         window.location.href = "index.html";
         return;
     }
