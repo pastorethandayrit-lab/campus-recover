@@ -8,46 +8,35 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const cloudName = "daxarj70f"; 
 const uploadPreset = "unsigned_upload"; 
 
-// 2. THE GATEKEEPER (Database-Driven)
+// 2. THE GATEKEEPER
 document.addEventListener("DOMContentLoaded", async () => {
   const { data: { session } } = await supabase.auth.getSession();
   const path = window.location.pathname;
   const isAuthPage = path.includes("login.html") || path.includes("register.html");
 
-  // Redirect to login if not authenticated
   if (!session && !isAuthPage) {
     window.location.href = "login.html";
     return;
   }
 
   let isAdmin = false;
-
   if (session) {
-    // We fetch the 'role' directly from your Supabase 'profiles' table
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', session.user.id)
       .single();
-
     isAdmin = profile?.role === 'admin';
-    
-    // Debugging: Check your browser console (F12) to see your actual role
-    console.log("Current User Role:", profile?.role || "No role found");
   }
 
-  // Handle Navbar
   renderNavbar(session, isAdmin);
 
-  // Redirect logged-in users away from Login/Register
   if (session && isAuthPage) {
     window.location.href = "index.html";
     return;
   }
 
-  // Admin Page Protection
   if (path.includes("admin.html") && !isAdmin) {
-    alert("Access Denied: Admin privileges required.");
     window.location.href = "index.html";
     return;
   }
@@ -105,6 +94,7 @@ async function setupPage(session, isAdmin) {
     const section = document.getElementById("adminSection");
     if (section) section.style.display = "block";
     loadAdminDashboard();
+    loadNotifications(); // New: Load claim/found notifications for admin
   }
 
   // Home Page
@@ -123,7 +113,90 @@ async function setupPage(session, isAdmin) {
   }
 }
 
-// 5. AUTHENTICATION & HELPERS
+// 5. ITEM RENDERING (With "I Found It" logic)
+function renderItems(items) {
+  const container = document.getElementById("itemsContainer");
+  if (!container) return;
+
+  container.innerHTML = items.length ? items.map(item => {
+    // Check if item is LOST to change button text
+    const isLostItem = item.type.toLowerCase() === 'lost';
+    const buttonText = isLostItem ? "I Found It" : "Claim Item";
+    const actionType = isLostItem ? "found_report" : "claim_request";
+
+    return `
+      <div class="card">
+        <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover;">
+        <div style="padding: 1.5rem;">
+          <span class="badge ${item.type}">${item.type}</span>
+          <h3>${item.title}</h3>
+          <p>📍 ${item.location}</p>
+          <button onclick="window.notifyAdmin('${item.id}', '${item.title}', '${actionType}')" 
+                  class="btn-approve" 
+                  style="width:100%; margin-top:10px; background: ${isLostItem ? '#10b981' : ''}">
+            ${buttonText}
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("") : `<p>No items found.</p>`;
+}
+
+// 6. NOTIFICATION SYSTEM
+window.notifyAdmin = async (itemId, itemTitle, actionType) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  const { error } = await supabase.from('notifications').insert([{
+    item_id: itemId,
+    user_id: session.user.id,
+    user_email: session.user.email,
+    item_title: itemTitle,
+    action_type: actionType
+  }]);
+
+  if (error) {
+    alert("Error: " + error.message);
+  } else {
+    alert(actionType === 'found_report' ? "Admin notified that you found this!" : "Claim request sent to Admin!");
+  }
+};
+
+async function loadNotifications() {
+  const { data: notes } = await supabase.from("notifications").select("*").order("created_at", { ascending: false });
+  const adminSection = document.getElementById("adminSection");
+  
+  // Create notification area if it doesn't exist
+  let notifyTable = document.getElementById("notifyTableBody");
+  if (!notifyTable) {
+    const div = document.createElement('div');
+    div.innerHTML = `
+      <h2 style="margin: 2rem 0 1rem;">User Notifications (Claims & Finds)</h2>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr><th>User</th><th>Item</th><th>Action</th><th>Date</th></tr>
+          </thead>
+          <tbody id="notifyTableBody"></tbody>
+        </table>
+      </div>
+    `;
+    adminSection.appendChild(div);
+    notifyTable = document.getElementById("notifyTableBody");
+  }
+
+  if (notes) {
+    notifyTable.innerHTML = notes.map(n => `
+      <tr>
+        <td>${n.user_email}</td>
+        <td>${n.item_title}</td>
+        <td><span class="status-tag approved">${n.action_type.replace('_', ' ')}</span></td>
+        <td>${new Date(n.created_at).toLocaleDateString()}</td>
+      </tr>
+    `).join("");
+  }
+}
+
+// 7. AUTH & ADMIN HELPERS
 async function handleAuth(e, type) {
   e.preventDefault();
   const email = e.target.querySelector("input[type=email]").value;
@@ -148,28 +221,12 @@ async function loadAdminDashboard() {
         <td>${item.type}</td>
         <td>${new Date(item.created_at).toLocaleDateString()}</td>
         <td>
-          ${item.status === 'pending' ? `<button onclick=\"window.updateStatus('${item.id}', 'approved')\" class=\"btn-approve\">Approve</button>` : ''}
-          <button onclick=\"window.deleteItem('${item.id}')\" class=\"btn-delete\">Delete</button>
+          ${item.status === 'pending' ? `<button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>` : ''}
+          <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
         </td>
       </tr>
     `).join("");
   }
-}
-
-function renderItems(items) {
-  const container = document.getElementById("itemsContainer");
-  if (!container) return;
-  container.innerHTML = items.length ? items.map(item => `
-    <div class="card">
-      <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover;">
-      <div style="padding: 1.5rem;">
-        <span class="badge ${item.type}">${item.type}</span>
-        <h3>${item.title}</h3>
-        <p>📍 ${item.location}</p>
-        <button onclick="window.claimItem('${item.id}')" class="btn-approve" style="width:100%; margin-top:10px;">Claim</button>
-      </div>
-    </div>
-  `).join("") : `<p>No items found.</p>`;
 }
 
 window.updateStatus = async (id, status) => { await supabase.from("items").update({ status }).eq("id", id); location.reload(); };
