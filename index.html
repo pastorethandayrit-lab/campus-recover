@@ -13,30 +13,23 @@
       <li><a href="index.html" class="active">Home</a></li>
       <li><a href="upload.html">Report</a></li>
       <li><a href="admin.html">Admin</a></li>
-      <li><a href="login.html">Sign In</a></li>
-      <li><a href="register.html">Register</a></li>
       <li><a href="profile.html">Profile</a></li>
     </ul>
   </nav>
 
-  <section class="hero">
+  <section class="hero" style="text-align: center; padding: 4rem 2rem; background: #fffbe6;">
     <div class="container">
-      <h2>Lost it? Find it.<br>Found it? Return it.</h2>
-      <p>The central hub for recovering lost items on campus.</p>
-      <div class="search-bar">
-        <input type="text" id="searchInput" placeholder="Search for items...">
-        <button id="searchBtn" class="primary">Search</button>
-      </div>
+      <h2 style="font-size: 2.5rem; margin-bottom: 1rem;">Lost it? Find it.<br>Found it? Return it.</h2>
+      <p style="color: #666; margin-bottom: 2rem;">The central hub for recovering lost items on campus.</p>
     </div>
   </section>
 
-  <section class="recent">
-    <h2 style="text-align:center; margin:3rem 0 1rem;">Recent Items</h2>
-    <p style="text-align:center; color: #666; margin-bottom: 2rem;">Browse the latest reported items on campus.</p>
-    
+  <main class="dashboard">
+    <h2 style="text-align:center; margin-bottom: 2rem;">Recent Items</h2>
     <div id="itemsContainer" class="items-grid">
-      </div>
-  </section>
+      <p style="text-align: center; grid-column: 1/-1;">Loading items...</p>
+    </div>
+  </main>
 
   <script type="module" src="script.js"></script>
 </body>

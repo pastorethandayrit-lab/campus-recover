@@ -13,10 +13,7 @@ async function uploadImage(file) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", uploadPreset);
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-    method: "POST",
-    body: formData
-  });
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, { method: "POST", body: formData });
   if (!res.ok) throw new Error("Image upload failed.");
   const data = await res.json();
   return data.secure_url;
@@ -36,128 +33,22 @@ async function handleAuth(e, type) {
   else window.location.href = "index.html";
 }
 
-// 4. CLAIM INTERACTION
-window.claimItem = async (itemId, type) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) { 
-    alert("Please sign in first!"); 
-    window.location.href = "login.html"; 
-    return; 
-  }
-
-  const { error } = await supabase.from("claims").insert([{
-    item_id: itemId,
-    claimer_id: session.user.id,
-    claimer_email: session.user.email,
-    status: 'pending'
-  }]);
-
-  if (error) alert("Error: " + error.message);
-  else alert("Success! Your request has been sent to the dashboard.");
-};
-
-// 5. ADMIN DASHBOARD ACTIONS
-async function loadAdminDashboard() {
-  const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
-  const { data: claims } = await supabase.from("claims").select("*, items(title)").order("created_at", { ascending: false });
-
-  if(document.getElementById("totalItems")) document.getElementById("totalItems").textContent = items?.length || 0;
-  if(document.getElementById("activeLost")) document.getElementById("activeLost").textContent = items?.filter(i => i.type === 'lost').length || 0;
-  if(document.getElementById("activeFound")) document.getElementById("activeFound").textContent = items?.filter(i => i.type === 'found').length || 0;
-  
-  const tableBody = document.getElementById("adminTableBody");
-  const mobileCards = document.getElementById("adminCardsMobile");
-
-  if (items) {
-    // Desktop Table with Date
-    tableBody.innerHTML = items.map(item => `
-      <tr>
-        <td>${item.title}</td>
-        <td><span class="status-tag ${item.status}">${item.status}</span></td>
-        <td>${item.type}</td>
-        <td>${item.date || 'N/A'}</td>
-        <td>
-          <button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>
-          <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
-        </td>
-      </tr>`).join("");
-
-    // Mobile Cards with Date
-    mobileCards.innerHTML = items.map(item => `
-      <div class="mobile-admin-card">
-        <h4>${item.title} <span class="status-tag ${item.status}">${item.status}</span></h4>
-        <p style="font-size: 0.85rem; color: #666;">Type: <strong>${item.type}</strong></p>
-        <p style="font-size: 0.85rem; color: #666;">Date: <strong>${item.date || 'N/A'}</strong></p>
-        <div class="admin-actions">
-          <button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>
-          <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
-        </div>
-      </div>`).join("");
-  }
-
-  const claimsList = document.getElementById("claimsList");
-  if (claimsList && claims) {
-    if (claims.length === 0) {
-        claimsList.innerHTML = "<p class='empty-msg'>No active claim requests.</p>";
-    } else {
-        claimsList.innerHTML = claims.map(c => `
-          <div class="claim-item-card">
-            <div>
-              <strong style="color: #222;">${c.claimer_email}</strong> 
-              wants to claim <strong>${c.items?.title || 'Item'}</strong>
-              <br><span class="status-tag ${c.status || 'pending'}">${c.status || 'pending'}</span>
-            </div>
-            <div class="claim-actions">
-              <button onclick="window.updateClaimStatus('${c.id}', 'approved')" class="btn-approve">Allow</button>
-              <button onclick="window.updateClaimStatus('${c.id}', 'rejected')" class="btn-reject">Reject</button>
-              <button onclick="window.deleteClaim('${c.id}')" class="btn-delete">Delete</button>
-            </div>
-          </div>
-        `).join("");
-    }
-  }
-}
-
-window.updateStatus = async (id, status) => {
-  await supabase.from("items").update({ status }).eq("id", id);
-  loadAdminDashboard();
-};
-
-window.deleteItem = async (id) => {
-  if (confirm("Delete this report permanently?")) {
-    await supabase.from("items").delete().eq("id", id);
-    loadAdminDashboard();
-  }
-};
-
-window.updateClaimStatus = async (id, status) => {
-  const { error } = await supabase.from("claims").update({ status }).eq("id", id);
-  if (error) alert(error.message);
-  else {
-    alert(`Claim ${status}!`);
-    loadAdminDashboard();
-  }
-};
-
-window.deleteClaim = async (id) => {
-  if (confirm("Delete this claim request?")) {
-    await supabase.from("claims").delete().eq("id", id);
-    loadAdminDashboard();
-  }
-};
-
-// 6. UI RENDERING
+// 4. HOME PAGE RENDERING
 function renderItems(items) {
   const container = document.getElementById("itemsContainer");
   if (!container) return;
+  if (items.length === 0) {
+    container.innerHTML = `<p style="grid-column: 1/-1; text-align: center;">No items found.</p>`;
+    return;
+  }
   container.innerHTML = items.map(item => `
     <div class="card">
-      <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover; border-radius:8px;">
-      <div style="padding:15px;">
+      <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover;">
+      <div style="padding: 1.5rem;">
         <span class="badge ${item.type}">${item.type}</span>
-        <h3 style="margin:10px 0;">${item.title}</h3>
-        <p>📍 ${item.location}</p>
-        <button onclick="window.claimItem('${item.id}', '${item.type}')" class="btn-claim">
+        <h3 style="margin: 0.5rem 0;">${item.title}</h3>
+        <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">📍 ${item.location}</p>
+        <button onclick="window.claimItem('${item.id}')" class="btn-claim">
           ${item.type === 'found' ? 'Claim This Item' : 'I Found This!'}
         </button>
       </div>
@@ -165,67 +56,96 @@ function renderItems(items) {
   `).join("");
 }
 
-// 7. INITIALIZE
+// 5. INITIALIZE PAGE LOGIC
 document.addEventListener("DOMContentLoaded", async () => {
   const { data: { session } } = await supabase.auth.getSession();
-  const publicPages = ["login.html", "register.html"]; 
-  const currentPage = window.location.pathname.split("/").pop();
 
-  if (!session && !publicPages.includes(currentPage)) {
-    window.location.href = "login.html";
-    return;
+  // Load items for Home Page
+  if (document.getElementById("itemsContainer")) {
+    const { data } = await supabase.from("items").select("*").eq("status", "approved").order("created_at", { ascending: false });
+    if (data) renderItems(data);
   }
 
-  const { data: recent } = await supabase.from("items")
-    .select("*")
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
-    .limit(6);
-  if (recent) renderItems(recent);
-
-  if (session) {
-    if (document.getElementById("userEmail")) document.getElementById("userEmail").textContent = session.user.email;
-    if (document.getElementById("avatarText")) document.getElementById("avatarText").textContent = session.user.email[0].toUpperCase();
-
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
-    if (document.getElementById("userRole")) document.getElementById("userRole").textContent = profile?.role || "User";
-
-    if (currentPage === "admin.html") {
-        if (profile?.role === "admin") {
-            document.getElementById("adminSection").style.display = "block";
-            document.getElementById("accessDenied").style.display = "none";
-            loadAdminDashboard();
-        } else {
-            document.getElementById("adminSection").style.display = "none";
-            document.getElementById("accessDenied").style.display = "block";
-        }
-    }
-  }
-
-  // Listeners
+  // Auth Listeners
   if (document.getElementById("loginForm")) document.getElementById("loginForm").addEventListener("submit", (e) => handleAuth(e, 'login'));
   if (document.getElementById("registerForm")) document.getElementById("registerForm").addEventListener("submit", (e) => handleAuth(e, 'register'));
-  
+
+  // Logout Logic
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) logoutBtn.addEventListener("click", async () => {
+    await supabase.auth.signOut();
+    window.location.href = "login.html";
+  });
+
+  // Report Form Logic
   const upForm = document.getElementById("uploadForm");
   if (upForm) {
     upForm.addEventListener("submit", async (e) => {
       e.preventDefault();
+      if (!session) return alert("Please sign in first!");
+      const btn = e.target.querySelector('button[type="submit"]');
+      btn.innerText = "Processing..."; btn.disabled = true;
+
       try {
         const fields = e.target.querySelectorAll("input, select, textarea");
-        const { data: { user } } = await supabase.auth.getUser();
         const imageUrl = await uploadImage(fields[6].files[0]);
         await supabase.from("items").insert([{ 
           type: fields[0].value, title: fields[1].value, category: fields[2].value, 
           description: fields[3].value, location: fields[4].value, date: fields[5].value,
-          status: 'pending', image_url: imageUrl, user_id: user.id 
+          status: 'pending', image_url: imageUrl, user_id: session.user.id 
         }]);
-        alert("Report submitted! Waiting for approval.");
+        alert("Success! Waiting for admin approval.");
         window.location.href = "index.html";
-      } catch (err) { alert(err.message); }
+      } catch (err) { alert(err.message); btn.innerText = "Submit Report"; btn.disabled = false; }
     });
   }
 
-  document.querySelectorAll("#logoutBtn").forEach(btn => 
-    btn.addEventListener("click", () => supabase.auth.signOut().then(() => window.location.href = "login.html"))
-  );
+  // Admin Logic
+  if (window.location.pathname.includes("admin.html")) {
+    if (!session || session.user.email !== 'admin@campus.com') { // SET YOUR ADMIN EMAIL HERE
+      document.getElementById("adminSection").style.display = "none";
+      document.getElementById("accessDenied").style.display = "block";
+    } else {
+      document.getElementById("adminSection").style.display = "block";
+      loadAdminDashboard();
+    }
+  }
 });
+
+// Admin Dashboard Function
+async function loadAdminDashboard() {
+  const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
+  const tableBody = document.getElementById("adminTableBody");
+  if (!tableBody || !items) return;
+
+  tableBody.innerHTML = items.map(item => `
+    <tr>
+      <td>${item.title}</td>
+      <td><span class="status-tag ${item.status}">${item.status}</span></td>
+      <td>${item.type}</td>
+      <td>${new Date(item.created_at).toLocaleDateString()}</td>
+      <td>
+        ${item.status === 'pending' ? `<button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve" style="padding:5px 10px; width:auto;">Approve</button>` : ''}
+        <button onclick="window.deleteItem('${item.id}')" class="btn-delete" style="padding:5px 10px; width:auto;">Delete</button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+// Global window functions for Admin
+window.updateStatus = async (id, status) => {
+  await supabase.from("items").update({ status }).eq("id", id);
+  location.reload();
+};
+window.deleteItem = async (id) => {
+  if (confirm("Delete this item?")) {
+    await supabase.from("items").delete().eq("id", id);
+    location.reload();
+  }
+};
+window.claimItem = async (itemId) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return window.location.href = "login.html";
+  const { error } = await supabase.from("claims").insert([{ item_id: itemId, claimer_id: session.user.id, claimer_email: session.user.email, status: 'pending' }]);
+  if (error) alert(error.message); else alert("Claim request sent!");
+};

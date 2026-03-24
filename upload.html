@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CampusRecover | Report Item</title>
+  <title>CampusRecover | Report</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,37 +13,32 @@
       <li><a href="index.html">Home</a></li>
       <li><a href="upload.html" class="active">Report</a></li>
       <li><a href="admin.html">Admin</a></li>
-      <li><a href="login.html">Sign In</a></li>
-      <li><a href="register.html">Register</a></li>
       <li><a href="profile.html">Profile</a></li>
     </ul>
   </nav>
 
   <main class="dashboard">
     <section class="form-section">
-      <form id="uploadForm" style="max-width: 600px; margin: 0 auto;">
-        <h2 style="margin-bottom: 1.5rem; text-align: center;">Report an Item</h2>
+      <form id="uploadForm">
+        <h2 style="text-align: center; margin-bottom: 2rem;">Report an Item</h2>
         
         <div class="form-group">
-          <label>Select Type</label>
-          <select required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd;">
-            <option value="">-- Select --</option>
-            <option value="lost">Lost (I lost something)</option>
-            <option value="found">Found (I found something)</option>
+          <label>Type</label>
+          <select required>
+            <option value="lost">Lost</option>
+            <option value="found">Found</option>
           </select>
         </div>
 
         <div class="form-group">
           <label>Item Title</label>
-          <input type="text" placeholder="e.g. Blue Water Bottle" required>
+          <input type="text" placeholder="e.g. Blue Wallet" required>
         </div>
 
         <div class="form-group">
           <label>Category</label>
-          <select required style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd;">
-            <option value="">-- Select Category --</option>
+          <select required>
             <option value="electronics">Electronics</option>
-            <option value="accessories">Accessories</option>
             <option value="books">Books</option>
             <option value="others">Others</option>
           </select>
@@ -51,12 +46,12 @@
 
         <div class="form-group">
           <label>Description</label>
-          <textarea placeholder="Provide details like brand, color, or distinguishing marks..." required style="min-height: 100px;"></textarea>
+          <textarea placeholder="Details..." required style="height: 100px; resize: none;"></textarea>
         </div>
 
         <div class="form-group">
           <label>Location</label>
-          <input type="text" placeholder="Where was it lost/found?" required>
+          <input type="text" placeholder="Where was it?" required>
         </div>
 
         <div class="form-group">
@@ -66,13 +61,10 @@
 
         <div class="form-group">
           <label>Item Image</label>
-          <input type="file" id="itemImage" accept="image/*" required style="border: none; padding: 0;">
+          <input type="file" accept="image/*" required>
         </div>
 
-        <div class="form-actions" style="display: flex; gap: 10px; margin-top: 2rem;">
-          <button type="button" class="btn-delete" style="flex: 1; padding: 12px; background: #666;" onclick="window.location.href='index.html'">Cancel</button>
-          <button type="submit" class="btn-approve" style="flex: 2; padding: 12px;">Submit Report</button>
-        </div>
+        <button type="submit" class="btn-approve">Submit Report</button>
       </form>
     </section>
   </main>

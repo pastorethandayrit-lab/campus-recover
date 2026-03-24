@@ -13,62 +13,32 @@
       <li><a href="index.html">Home</a></li>
       <li><a href="upload.html">Report</a></li>
       <li><a href="admin.html" class="active">Admin</a></li>
-      <li><a href="login.html">Sign In</a></li>
-      <li><a href="register.html">Register</a></li>
       <li><a href="profile.html">Profile</a></li>
     </ul>
   </nav>
 
   <section id="adminSection" style="display:none;" class="dashboard">
     <h2 style="margin-bottom: 2rem;">Admin Dashboard</h2>
-    
-    <div class="stats">
-      <div class="stat-card">
-        <h3>Total Items</h3>
-        <span id="totalItems">0</span>
-      </div>
-      <div class="stat-card">
-        <h3 style="color: #ef4444;">Active Lost</h3>
-        <span id="activeLost">0</span>
-      </div>
-      <div class="stat-card">
-        <h3 style="color: #22c55e;">Active Found</h3>
-        <span id="activeFound">0</span>
-      </div>
-    </div>
-
-    <h3 style="margin-bottom: 1rem;">Recent Reports</h3>
-    
-    <div class="desktop-only">
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Status</th>
-              <th>Type</th>
-              <th>Date Reported</th> <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="adminTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div id="adminCardsMobile" class="mobile-only"></div>
-
-    <hr style="margin: 3rem 0; border: 0; border-top: 1px solid #eee;">
-    
-    <h3 style="margin-bottom: 1rem;">Claim Requests</h3>
-    <div id="claimsList">
-        <p class="empty-msg">No active claim requests.</p>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Status</th>
+            <th>Type</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="adminTableBody"></tbody>
+      </table>
     </div>
   </section>
 
-  <section id="accessDenied" style="text-align: center; padding: 5rem 2rem;">
-    <h2 style="color: #ef4444;">Access Denied</h2>
-    <p>You do not have permission to view the Admin Dashboard.</p>
-    <a href="index.html" style="color: #facc15; font-weight: bold; text-decoration: none;">Return Home</a>
+  <section id="accessDenied" style="display:none; text-align: center; padding: 5rem 2rem;">
+    <h2>Access Denied</h2>
+    <p>You do not have permission to view this page.</p>
+    <a href="index.html">Return Home</a>
   </section>
 
   <script type="module" src="script.js"></script>
