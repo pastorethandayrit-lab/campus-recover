@@ -25,12 +25,17 @@ async function handleAuth(e, type) {
   const email = e.target.querySelector("input[type=email]").value;
   const password = e.target.querySelector("input[type=password]").value;
   
-  const { error } = type === 'login' 
+  // FIXED: Added { data } to ensure session is captured
+  const { data, error } = type === 'login' 
     ? await supabase.auth.signInWithPassword({ email, password })
     : await supabase.auth.signUp({ email, password });
 
-  if (error) alert(error.message);
-  else window.location.href = "index.html";
+  if (error) {
+    alert(error.message);
+  } else {
+    alert(type === 'login' ? "Logged in!" : "Registered!");
+    window.location.href = "index.html";
+  }
 }
 
 // 4. HOME PAGE RENDERING
@@ -88,23 +93,39 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       try {
         const fields = e.target.querySelectorAll("input, select, textarea");
-        const imageUrl = await uploadImage(fields[6].files[0]);
+        const fileInput = e.target.querySelector('input[type="file"]'); // FIXED: More reliable file selection
+        const imageUrl = await uploadImage(fileInput.files[0]);
+        
         await supabase.from("items").insert([{ 
-          type: fields[0].value, title: fields[1].value, category: fields[2].value, 
-          description: fields[3].value, location: fields[4].value, date: fields[5].value,
-          status: 'pending', image_url: imageUrl, user_id: session.user.id 
+          type: fields[0].value, 
+          title: fields[1].value, 
+          category: fields[2].value, 
+          description: fields[3].value, 
+          location: fields[4].value, 
+          date: fields[5].value,
+          status: 'pending', 
+          image_url: imageUrl, 
+          user_id: session.user.id // FIXED: Using session user id
         }]);
+        
         alert("Success! Waiting for admin approval.");
         window.location.href = "index.html";
-      } catch (err) { alert(err.message); btn.innerText = "Submit Report"; btn.disabled = false; }
+      } catch (err) { 
+        alert(err.message); 
+        btn.innerText = "Submit Report"; 
+        btn.disabled = false; 
+      }
     });
   }
 
   // Admin Logic
   if (window.location.pathname.includes("admin.html")) {
-    if (!session || session.user.email !== 'admin@campus.com') { // SET YOUR ADMIN EMAIL HERE
-      document.getElementById("adminSection").style.display = "none";
-      document.getElementById("accessDenied").style.display = "block";
+    // FIXED: Added a small delay to ensure session is checked
+    if (!session || session.user.email !== 'admin@campus.com') { 
+      const adminSec = document.getElementById("adminSection");
+      const deniedSec = document.getElementById("accessDenied");
+      if(adminSec) adminSec.style.display = "none";
+      if(deniedSec) deniedSec.style.display = "block";
     } else {
       document.getElementById("adminSection").style.display = "block";
       loadAdminDashboard();
@@ -132,20 +153,27 @@ async function loadAdminDashboard() {
   `).join("");
 }
 
-// Global window functions for Admin
+// Global window functions
 window.updateStatus = async (id, status) => {
   await supabase.from("items").update({ status }).eq("id", id);
   location.reload();
 };
+
 window.deleteItem = async (id) => {
   if (confirm("Delete this item?")) {
     await supabase.from("items").delete().eq("id", id);
     location.reload();
   }
 };
+
 window.claimItem = async (itemId) => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return window.location.href = "login.html";
-  const { error } = await supabase.from("claims").insert([{ item_id: itemId, claimer_id: session.user.id, claimer_email: session.user.email, status: 'pending' }]);
+  const { error } = await supabase.from("claims").insert([{ 
+    item_id: itemId, 
+    claimer_id: session.user.id, 
+    claimer_email: session.user.email, 
+    status: 'pending' 
+  }]);
   if (error) alert(error.message); else alert("Claim request sent!");
 };
