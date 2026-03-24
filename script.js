@@ -8,41 +8,31 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const cloudName = "daxarj70f"; 
 const uploadPreset = "unsigned_upload"; 
 
-// 2. THE ADMIN EMAIL 
-// CRITICAL: Ensure this is exactly what you use to sign in.
-const ADMIN_EMAIL = 'admin@campus.com'; 
 
-// 3. THE GATEKEEPER
+// 2. THE GATEKEEPER & NAV RENDERER
 document.addEventListener("DOMContentLoaded", async () => {
   const { data: { session } } = await supabase.auth.getSession();
   const path = window.location.pathname;
   const isAuthPage = path.includes("login.html") || path.includes("register.html");
 
-  // Authentication Guard
   if (!session && !isAuthPage) {
     window.location.href = "login.html";
     return;
   }
 
-  // --- THE STRIKE-ZONE FIX ---
   const userEmail = session?.user?.email || "";
-  // This converts BOTH to lowercase and removes spaces to force a match
   const isAdmin = userEmail.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
 
-  // DEBUGGER (Press F12 to see this in your browser)
-  console.log("--- ADMIN DEBUG ---");
-  console.log("Logged in as:", `[${userEmail}]`);
-  console.log("Target Admin:", `[${ADMIN_EMAIL}]`);
-  console.log("Result:", isAdmin ? "✅ MATCH FOUND" : "❌ NO MATCH");
+  // BUILD THE NAVBAR (This ensures it never disappears)
+  renderNavbar(session, isAdmin);
 
   if (session && isAuthPage) {
     window.location.href = "index.html";
     return;
   }
 
-  // Admin Page Protection
+  // Protect Admin Page
   if (path.includes("admin.html") && !isAdmin) {
-    console.warn("Access Denied: Not an admin account.");
     window.location.href = "index.html";
     return;
   }
@@ -50,9 +40,30 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupPage(session, isAdmin);
 });
 
-// 4. PAGE INITIALIZATION
+function renderNavbar(session, isAdmin) {
+  const navContainer = document.getElementById("navLinks");
+  if (!navContainer) return;
+
+  if (!session) {
+    navContainer.innerHTML = `
+      <li><a href="login.html">Sign In</a></li>
+      <li><a href="register.html">Register</a></li>
+    `;
+  } else {
+    let links = `
+      <li><a href="index.html">Home</a></li>
+      <li><a href="upload.html">Report</a></li>
+      <li><a href="profile.html">Profile</a></li>
+    `;
+    if (isAdmin) {
+      links += `<li><a href="admin.html">Admin</a></li>`;
+    }
+    navContainer.innerHTML = links;
+  }
+}
+
+// 3. PAGE INITIALIZATION
 async function setupPage(session, isAdmin) {
-  // Forms
   const loginForm = document.getElementById("loginForm");
   if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
   
@@ -61,15 +72,10 @@ async function setupPage(session, isAdmin) {
 
   if (!session) return;
 
-  // Profile Page UI
-  const emailDisplay = document.getElementById("userEmail");
-  if (emailDisplay) {
-    emailDisplay.innerText = session.user.email;
+  // Profile Info
+  if (document.getElementById("userEmail")) {
+    document.getElementById("userEmail").innerText = session.user.email;
     const roleTag = document.getElementById("userRole");
-    const avatar = document.getElementById("avatarText");
-    
-    if (avatar) avatar.innerText = session.user.email[0].toUpperCase();
-    
     if (roleTag) {
       roleTag.innerText = isAdmin ? "Admin" : "User";
       roleTag.style.background = isAdmin ? "#ef4444" : "#dcfce7";
@@ -77,27 +83,20 @@ async function setupPage(session, isAdmin) {
     }
   }
 
-  // Navbar Logic
-  const adminNavLink = document.querySelector('a[href="admin.html"]');
-  if (adminNavLink) {
-    // Only show the link in the menu if isAdmin is true
-    adminNavLink.parentElement.style.display = isAdmin ? "block" : "none";
-  }
-
-  // Admin Dashboard Loading
+  // Admin Dashboard
   if (window.location.pathname.includes("admin.html") && isAdmin) {
     const section = document.getElementById("adminSection");
     if (section) section.style.display = "block";
     loadAdminDashboard();
   }
 
-  // Home Page Items
+  // Home Items
   if (document.getElementById("itemsContainer")) {
     const { data } = await supabase.from("items").select("*").eq("status", "approved");
     renderItems(data || []);
   }
 
-  // Logout Logic
+  // Logout
   const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) {
     logoutBtn.addEventListener("click", async () => {
@@ -113,7 +112,6 @@ async function setupPage(session, isAdmin) {
       e.preventDefault();
       const btn = upForm.querySelector('button');
       btn.innerText = "Uploading..."; btn.disabled = true;
-
       try {
         const file = upForm.querySelector('input[type="file"]').files[0];
         const imageUrl = await uploadImage(file);
@@ -129,55 +127,44 @@ async function setupPage(session, isAdmin) {
           status: 'pending'
         }]);
         if (error) throw error;
-        alert("Reported! Waiting for admin approval.");
+        alert("Reported successfully!");
         window.location.href = "index.html";
       } catch (err) { alert(err.message); btn.innerText = "Submit"; btn.disabled = false; }
     });
   }
 }
 
-// 5. AUTHENTICATION
+// 4. HELPERS
 async function handleAuth(e, type) {
   e.preventDefault();
   const email = e.target.querySelector("input[type=email]").value;
   const password = e.target.querySelector("input[type=password]").value;
-  const btn = e.target.querySelector('button');
-  
-  btn.innerText = "Processing...";
-  btn.disabled = true;
-
   try {
     const { error } = type === 'login' 
       ? await supabase.auth.signInWithPassword({ email, password })
       : await supabase.auth.signUp({ email, password });
-
     if (error) throw error;
     window.location.href = "index.html";
-  } catch (err) {
-    alert(err.message);
-    btn.innerText = type === 'login' ? "Login" : "Register";
-    btn.disabled = false;
-  }
+  } catch (err) { alert(err.message); }
 }
 
-// 6. DASHBOARD & RENDERERS
 async function loadAdminDashboard() {
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   const tableBody = document.getElementById("adminTableBody");
-  if (!tableBody || !items) return;
-
-  tableBody.innerHTML = items.map(item => `
-    <tr>
-      <td>${item.title}</td>
-      <td><span class="status-tag ${item.status}">${item.status}</span></td>
-      <td>${item.type}</td>
-      <td>${new Date(item.created_at).toLocaleDateString()}</td>
-      <td>
-        ${item.status === 'pending' ? `<button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>` : ''}
-        <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
-      </td>
-    </tr>
-  `).join("");
+  if (tableBody && items) {
+    tableBody.innerHTML = items.map(item => `
+      <tr>
+        <td>${item.title}</td>
+        <td><span class="status-tag ${item.status}">${item.status}</span></td>
+        <td>${item.type}</td>
+        <td>${new Date(item.created_at).toLocaleDateString()}</td>
+        <td>
+          ${item.status === 'pending' ? `<button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>` : ''}
+          <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
+        </td>
+      </tr>
+    `).join("");
+  }
 }
 
 function renderItems(items) {
@@ -206,17 +193,6 @@ async function uploadImage(file) {
   return data.secure_url;
 }
 
-// 7. WINDOW GLOBALS
-window.updateStatus = async (id, status) => { 
-  await supabase.from("items").update({ status }).eq("id", id); 
-  location.reload(); 
-};
-
-window.deleteItem = async (id) => { 
-  if(confirm("Delete?")) { 
-    await supabase.from("items").delete().eq("id", id); 
-    location.reload(); 
-  } 
-};
-
+window.updateStatus = async (id, status) => { await supabase.from("items").update({ status }).eq("id", id); location.reload(); };
+window.deleteItem = async (id) => { if(confirm("Delete?")) { await supabase.from("items").delete().eq("id", id); location.reload(); } };
 window.claimItem = () => alert("Claim request sent!");
