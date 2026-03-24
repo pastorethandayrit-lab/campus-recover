@@ -65,8 +65,12 @@ async function loadAdminDashboard() {
   if(document.getElementById("activeLost")) document.getElementById("activeLost").textContent = items?.filter(i => i.type === 'lost').length || 0;
   if(document.getElementById("activeFound")) document.getElementById("activeFound").textContent = items?.filter(i => i.type === 'found').length || 0;
   
+  // RENDER REPORTS (Desktop & Mobile)
   const tableBody = document.getElementById("adminTableBody");
-  if (tableBody && items) {
+  const mobileCards = document.getElementById("adminCardsMobile");
+
+  if (items) {
+    // Desktop Table
     tableBody.innerHTML = items.map(item => `
       <tr>
         <td>${item.title}</td>
@@ -77,23 +81,35 @@ async function loadAdminDashboard() {
           <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
         </td>
       </tr>`).join("");
+
+    // Mobile Cards
+    mobileCards.innerHTML = items.map(item => `
+      <div class="mobile-admin-card">
+        <h4>${item.title} <span class="status-tag ${item.status}">${item.status}</span></h4>
+        <p style="font-size: 0.85rem; color: #666;">Type: ${item.type}</p>
+        <div class="admin-actions">
+          <button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>
+          <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
+        </div>
+      </div>`).join("");
   }
 
+  // RENDER CLAIMS
   const claimsList = document.getElementById("claimsList");
   if (claimsList && claims) {
     if (claims.length === 0) {
-        claimsList.innerHTML = "<p>No active claim requests.</p>";
+        claimsList.innerHTML = "<p class='empty-msg'>No active claim requests.</p>";
     } else {
         claimsList.innerHTML = claims.map(c => `
-          <div style="padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: white; margin-bottom: 5px; border-radius: 8px;">
+          <div class="claim-item-card">
             <div>
               <strong style="color: #222;">${c.claimer_email}</strong> 
               wants to claim <strong>${c.items?.title || 'Item'}</strong>
               <br><span class="status-tag ${c.status || 'pending'}">${c.status || 'pending'}</span>
             </div>
-            <div style="display: flex; gap: 5px;">
+            <div class="claim-actions">
               <button onclick="window.updateClaimStatus('${c.id}', 'approved')" class="btn-approve">Allow</button>
-              <button onclick="window.updateClaimStatus('${c.id}', 'rejected')" class="btn-reject" style="background: #f59e0b;">Reject</button>
+              <button onclick="window.updateClaimStatus('${c.id}', 'rejected')" class="btn-reject">Reject</button>
               <button onclick="window.deleteClaim('${c.id}')" class="btn-delete">Delete</button>
             </div>
           </div>
@@ -151,21 +167,15 @@ function renderItems(items) {
 
 // 7. INITIALIZE & GATEKEEPER
 document.addEventListener("DOMContentLoaded", async () => {
-  // --- GATEKEEPER START ---
   const { data: { session } } = await supabase.auth.getSession();
-  
-  // Removed "index.html" and "" from this list to protect the Home page
   const publicPages = ["login.html", "register.html"]; 
   const currentPage = window.location.pathname.split("/").pop();
 
-  // If there's no session and the user is NOT on a login/register page, kick them to login
   if (!session && !publicPages.includes(currentPage)) {
     window.location.href = "login.html";
     return;
   }
-  // --- GATEKEEPER END ---
 
-  // Load Recent Items (Only runs if user passes the gatekeeper)
   const { data: recent } = await supabase.from("items")
     .select("*")
     .eq("status", "approved")
@@ -180,15 +190,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", session.user.id).single();
     if (document.getElementById("userRole")) document.getElementById("userRole").textContent = profile?.role || "User";
 
-    // Admin Page Access Control
-    if (currentPage === "admin.html" && profile?.role !== "admin") {
-        window.location.href = "index.html";
-        return;
-    }
-
-    if (document.getElementById("adminSection") && profile?.role === "admin") {
-      document.getElementById("adminSection").style.display = "block";
-      loadAdminDashboard();
+    if (currentPage === "admin.html") {
+        if (profile?.role === "admin") {
+            document.getElementById("adminSection").style.display = "block";
+            document.getElementById("accessDenied").style.display = "none";
+            loadAdminDashboard();
+        } else {
+            document.getElementById("adminSection").style.display = "none";
+            document.getElementById("accessDenied").style.display = "block";
+        }
     }
   }
 
