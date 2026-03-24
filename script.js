@@ -210,20 +210,34 @@ async function loadAdminDashboard() {
     if(document.getElementById("adminFound")) document.getElementById("adminFound").innerText = items.filter(i => i.type === 'found').length;
 
     if (tableBody) {
-      tableBody.innerHTML = items.map(item => `
+      tableBody.innerHTML = items.map(item => {
+        const isPending = item.status === 'pending';
+        return `
         <tr>
-          <td><strong>${item.title}</strong><br><small style="color:gray;">${new Date(item.date).toLocaleDateString()}</small></td>
-          <td>${item.admin_note || '<em style="color:#ccc;">No note</em>'}</td>
+          <td>
+            <strong>${item.title}</strong> 
+            <span style="font-size:0.65rem; padding:2px 4px; border-radius:3px; background:${isPending ? '#fef3c7':'#dcfce7'}; color:${isPending ? '#92400e':'#166534'};">
+              ${item.status.toUpperCase()}
+            </span>
+            <br><small style="color:gray;">${new Date(item.date).toLocaleDateString()}</small>
+          </td>
+          <td>
+            <input type="text" id="note-${item.id}" placeholder="Note..." value="${item.admin_note || ''}" 
+                   style="padding: 5px; width: 100px; border: 1px solid #ddd; border-radius: 4px;">
+          </td>
           <td>
              <input type="text" value="${item.location}" onchange="window.updateLocation('${item.id}', this.value)"
-                    style="padding: 5px; width: 120px; border: 1px solid #ddd; border-radius: 4px;">
+                    style="padding: 5px; width: 100px; border: 1px solid #ddd; border-radius: 4px;">
           </td>
           <td>
-            <button onclick="window.deleteItem('${item.id}')" class="btn-delete" 
-                    style="background:#ef4444; color:white; border:none; border-radius:4px; padding:6px 10px; cursor:pointer;">Del</button>
+            <div style="display: flex; gap: 4px;">
+              ${isPending ? `<button onclick="window.approveItem('${item.id}')" style="background:#10b981; color:white; border:none; border-radius:4px; padding:5px; cursor:pointer;">Approve</button>` : '✅'}
+              <button onclick="window.deleteItem('${item.id}')" class="btn-delete" 
+                      style="background:#ef4444; color:white; border:none; border-radius:4px; padding:5px; cursor:pointer;">Del</button>
+            </div>
           </td>
         </tr>
-      `).join("");
+      `}).join("");
     }
   }
 }
@@ -255,23 +269,21 @@ async function loadNotifications() {
   }
 }
 
+window.approveItem = async (id) => {
+  const note = document.getElementById(`note-${id}`).value;
+  const { error } = await supabase.from("items").update({ status: 'approved', admin_note: note }).eq("id", id);
+  if (error) alert(error.message);
+  else location.reload();
+};
+
 window.processActivity = async (notifId, itemId, decision) => {
   const comment = document.getElementById(`reply-${notifId}`).value;
-  
-  // 1. Update the Item with the comment and mark as approved if confirmed
   const updateData = { admin_note: comment };
   if (decision === 'approved') updateData.status = 'approved';
 
-  const { error: itemErr } = await supabase.from("items").update(updateData).eq("id", itemId);
-
-  // 2. Remove notification
-  const { error: noteErr } = await supabase.from("notifications").delete().eq("id", notifId);
-
-  if (itemErr || noteErr) alert("Error processing action.");
-  else {
-    alert(`Request ${decision}!`);
-    location.reload();
-  }
+  await supabase.from("items").update(updateData).eq("id", itemId);
+  await supabase.from("notifications").delete().eq("id", notifId);
+  location.reload();
 };
 
 window.updateLocation = async (id, newLoc) => {
