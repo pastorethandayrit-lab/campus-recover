@@ -134,14 +134,17 @@ async function setupPage(session, isAdmin) {
           status: 'pending'
         }]);
         if (error) throw error;
-        alert("Reported! Awaiting admin approval.");
+        
+        // Custom Admin Message for Users
+        alert("Reported! Please Leave and Bring the item Here at the Admin Office for verification.");
+        
         window.location.href = "index.html";
       } catch (err) { alert(err.message); btn.innerText = "Submit"; btn.disabled = false; }
     });
   }
 }
 
-// 5. ITEM RENDERING (With "I Found It" logic)
+// 5. ITEM RENDERING (Updated with Copy and Location Message)
 function renderItems(items) {
   const container = document.getElementById("itemsContainer");
   if (!container) return;
@@ -157,17 +160,35 @@ function renderItems(items) {
         <div style="padding: 1.5rem;">
           <span class="badge ${item.type}">${item.type.toUpperCase()}</span>
           <h3>${item.title}</h3>
-          <p>📍 ${item.location}</p>
-          <button onclick="window.notifyAdmin('${item.id}', '${item.title}', '${actionType}')" 
-                  class="btn-approve" 
-                  style="width:100%; margin-top:10px; background: ${isLostItem ? '#10b981' : ''}">
-            ${buttonText}
-          </button>
+          
+          <div style="background: #f0f7ff; padding: 10px; border-radius: 6px; border: 1px solid #cce3ff; margin: 10px 0;">
+            <p style="font-size: 0.9rem; color: #1e40af; margin: 0;">📍 <strong>Location:</strong> ${item.location}</p>
+          </div>
+
+          <div style="display: flex; gap: 5px; margin-top: 15px;">
+            <button onclick="window.notifyAdmin('${item.id}', '${item.title}', '${actionType}')" 
+                    class="btn-approve" 
+                    style="flex: 2; background: ${isLostItem ? '#10b981' : ''}">
+              ${buttonText}
+            </button>
+            <button onclick="window.copyToClipboard('${item.title}', '${item.location}')" 
+                    style="flex: 1; padding: 10px; cursor: pointer; border-radius: 6px; border: 1px solid #ccc; background: #fff;">
+              Copy
+            </button>
+          </div>
         </div>
       </div>
     `;
   }).join("") : `<p>No items found.</p>`;
 }
+
+// 6. ACTION HELPERS (Copy info)
+window.copyToClipboard = (title, location) => {
+  const text = `Item: ${title} | Location: ${location}`;
+  navigator.clipboard.writeText(text).then(() => {
+    alert("Item details copied to clipboard!");
+  });
+};
 
 // 6. NOTIFICATION SYSTEM
 window.notifyAdmin = async (itemId, itemTitle, actionType) => {
@@ -222,7 +243,7 @@ async function loadNotifications() {
   }
 }
 
-// 7. AUTH & ADMIN HELPERS
+// 7. AUTH & ADMIN HELPERS (Updated Approval & Editing)
 async function handleAuth(e, type) {
   e.preventDefault();
   const email = e.target.querySelector("input[type=email]").value;
@@ -244,11 +265,17 @@ async function loadAdminDashboard() {
       <tr>
         <td>${item.title}</td>
         <td><span class="status-tag ${item.status}">${item.status}</span></td>
-        <td>${item.type}</td>
+        <td>
+           <input type="text" value="${item.location}" 
+                  onchange="window.updateLocation('${item.id}', this.value)"
+                  style="padding: 5px; width: 120px; border: 1px solid #ddd; border-radius: 4px;">
+        </td>
         <td>${new Date(item.created_at).toLocaleDateString()}</td>
         <td>
-          ${item.status === 'pending' ? `<button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>` : ''}
-          <button onclick="window.deleteItem('${item.id}')" class="btn-delete">Delete</button>
+          <div style="display: flex; gap: 5px;">
+            ${item.status === 'pending' ? `<button onclick="window.updateStatus('${item.id}', 'approved')" class="btn-approve">Approve</button>` : ''}
+            <button onclick="window.deleteItem('${item.id}')" class="btn-delete" style="background: #ef4444; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px;">Delete</button>
+          </div>
         </td>
       </tr>
     `).join("");
@@ -265,5 +292,25 @@ async function uploadImage(file) {
   return data.secure_url;
 }
 
-window.updateStatus = async (id, status) => { await supabase.from("items").update({ status }).eq("id", id); location.reload(); };
-window.deleteItem = async (id) => { if(confirm("Delete?")) { await supabase.from("items").delete().eq("id", id); location.reload(); } };
+// Updated Status: Changes location to 'Admin Office' on approval
+window.updateStatus = async (id, status) => { 
+  const updates = { status };
+  if (status === 'approved') {
+    updates.location = 'Admin Office';
+  }
+  await supabase.from("items").update(updates).eq("id", id); 
+  location.reload(); 
+};
+
+// New: Allows Admin to edit location manually from the dashboard
+window.updateLocation = async (id, newLoc) => {
+  const { error } = await supabase.from("items").update({ location: newLoc }).eq("id", id);
+  if (error) alert("Failed to update location");
+};
+
+window.deleteItem = async (id) => { 
+  if(confirm("Are you sure you want to delete this item?")) { 
+    await supabase.from("items").delete().eq("id", id); 
+    location.reload(); 
+  } 
+};
