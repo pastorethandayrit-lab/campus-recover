@@ -99,9 +99,13 @@ async function setupPage(session, isAdmin) {
     if (countDisplay) countDisplay.innerText = count || 0;
   }
 
-  // HOME PAGE LOGIC
+  // HOME PAGE LOGIC (Filters out "resolved" items so they leave the home page)
   if (document.getElementById("itemsContainer")) {
-    const { data: itemsWithProfiles } = await supabase.from("items").select(`*, profiles(username)`).eq("status", "approved");
+    const { data: itemsWithProfiles } = await supabase
+        .from("items")
+        .select(`*, profiles(username)`)
+        .eq("status", "approved"); // "resolved" items will naturally be hidden here
+    
     allItems = itemsWithProfiles || [];
     renderItems(allItems);
 
@@ -179,7 +183,7 @@ async function setupPage(session, isAdmin) {
 }
 
 // 5. ITEM RENDERING
-window.renderItems = (items) => {
+function renderItems(items) {
   const container = document.getElementById("itemsContainer");
   if (!container) return;
 
@@ -207,7 +211,7 @@ window.renderItems = (items) => {
         </div>
       </div>`;
   }).join("") : `<p>No items found.</p>`;
-};
+}
 
 // 6. ACTION HELPERS
 window.notifyAdmin = async (itemId, itemTitle, actionType) => {
@@ -221,6 +225,7 @@ window.notifyAdmin = async (itemId, itemTitle, actionType) => {
 
 // 7. ADMIN FUNCTIONS
 async function loadAdminDashboard() {
+  // Select all items to calculate stats correctly
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   const tableBody = document.getElementById("adminTableBody");
   
@@ -229,8 +234,9 @@ async function loadAdminDashboard() {
     const lost = items.filter(item => item.type.toLowerCase() === 'lost').length;
     const found = items.filter(item => item.type.toLowerCase() === 'found').length;
     
-    // Logic for Success Rate: (Found Items / Total) * 100
-    const successRate = total > 0 ? Math.round((found / total) * 100) : 0;
+    // NEW CALCULATION: Success Rate = (Resolved Items / Total Items) * 100
+    const resolvedCount = items.filter(item => item.status === 'resolved').length;
+    const successRate = total > 0 ? Math.round((resolvedCount / total) * 100) : 0;
 
     if (document.getElementById("adminTotal")) document.getElementById("adminTotal").innerText = total;
     if (document.getElementById("adminLost")) document.getElementById("adminLost").innerText = lost;
@@ -240,7 +246,12 @@ async function loadAdminDashboard() {
     if (tableBody) {
       tableBody.innerHTML = items.map(item => `
         <tr>
-          <td><strong>${item.title}</strong></td>
+          <td>
+            <strong>${item.title}</strong> 
+            <span style="font-size:0.65rem; padding:2px 4px; border-radius:3px; background:${item.status === 'pending' ? '#fef3c7' : '#dcfce7'};">
+              ${item.status.toUpperCase()}
+            </span>
+          </td>
           <td><input type="text" id="note-${item.id}" value="${item.admin_note || ''}"></td>
           <td>${item.location}</td>
           <td>
@@ -273,12 +284,13 @@ window.approveItem = async (id) => {
   location.reload();
 };
 
-// Consolidated processActivity: Deletes item on confirmation so it leaves the Home Page
+// UPDATED: Instead of deleting, we change status to "resolved"
 window.processActivity = async (notifId, itemId, decision) => {
     const comment = document.getElementById(`reply-${notifId}`).value;
     if (decision === 'approved') {
-        await supabase.from("items").delete().eq("id", itemId);
-        alert("Success! Item confirmed and removed.");
+        // Mark as resolved. This hides it from the Home Page filter but keeps it for the Success Rate
+        await supabase.from("items").update({ status: 'resolved', admin_note: comment }).eq("id", itemId);
+        alert("Success! Item confirmed and resolved.");
     } else {
         await supabase.from("items").update({ admin_note: comment }).eq("id", itemId);
     }
@@ -287,7 +299,7 @@ window.processActivity = async (notifId, itemId, decision) => {
 };
 
 window.deleteItem = async (id) => { 
-  if(confirm("Delete item?")) { 
+  if(confirm("Delete item forever?")) { 
     await supabase.from("items").delete().eq("id", id); 
     location.reload(); 
   } 
