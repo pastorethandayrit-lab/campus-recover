@@ -84,7 +84,6 @@ async function setupPage(session, isAdmin) {
     const roleDisplay = document.getElementById("userRole");
     const nameDisplay = document.getElementById("displayUsername");
     const avatarText = document.getElementById("avatarText");
-    const countDisplay = document.getElementById("userReportCount");
 
     if (emailDisplay) emailDisplay.innerText = session.user.email;
     if (roleDisplay) roleDisplay.innerText = isAdmin ? "Administrator" : "User";
@@ -94,19 +93,21 @@ async function setupPage(session, isAdmin) {
         if (nameDisplay) nameDisplay.innerText = profile.username;
         if (avatarText) avatarText.innerText = profile.username.charAt(0).toUpperCase();
     }
-
-    const { count } = await supabase.from('items').select('*', { count: 'exact', head: true }).eq('user_id', session.user.id);
-    if (countDisplay) countDisplay.innerText = count || 0;
   }
 
-  // HOME PAGE LOGIC (Filters out "resolved" items so they leave the home page)
+  // HOME PAGE LOGIC (Fixed for visibility)
   if (document.getElementById("itemsContainer")) {
-    const { data: itemsWithProfiles } = await supabase
+    // Simplified query to ensure items show up even if profiles aren't linked correctly
+    const { data: itemsData, error } = await supabase
         .from("items")
-        .select(`*, profiles(username)`)
-        .eq("status", "approved"); // "resolved" items will naturally be hidden here
+        .select("*") 
+        .eq("status", "approved");
     
-    allItems = itemsWithProfiles || [];
+    if (error) {
+        console.error("Fetch error:", error.message);
+    }
+
+    allItems = itemsData || [];
     renderItems(allItems);
 
     const searchInput = document.getElementById("searchInput");
@@ -114,9 +115,9 @@ async function setupPage(session, isAdmin) {
     const categoryFilter = document.getElementById("categoryFilter");
 
     const runFilters = () => {
-      const q = searchInput.value.toLowerCase();
-      const t = typeFilter.value;
-      const c = categoryFilter.value;
+      const q = (searchInput?.value || "").toLowerCase();
+      const t = typeFilter?.value || "all";
+      const c = categoryFilter?.value || "all";
 
       const filtered = allItems.filter(item => {
         const matchesSearch = item.title.toLowerCase().includes(q) || item.location.toLowerCase().includes(q);
@@ -190,15 +191,16 @@ function renderItems(items) {
   const isAdmin = document.querySelector('a[href="admin.html"]') !== null;
 
   container.innerHTML = items.length ? items.map(item => {
-    const reporter = item.profiles?.username || "Anonymous";
+    // Fallback logic if profile username isn't present
+    const reporter = item.user_id ? "Campus User" : "Anonymous";
     const isLost = item.type.toLowerCase() === 'lost';
     
     return `
       <div class="card">
-        <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover;">
+        <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover;" onerror="this.src='https://via.placeholder.com/200'">
         <div style="padding: 1.5rem;">
           <span class="badge ${item.type}">${item.type.toUpperCase()}</span>
-          <p style="font-size: 0.8rem; color: #666; margin: 5px 0;">Reporter: <strong>${reporter}</strong></p>
+          <p style="font-size: 0.8rem; color: #666; margin: 5px 0;">Status: <strong>${item.status}</strong></p>
           <h3>${item.title}</h3>
           ${item.admin_note ? `<div style="background: #fff4e5; border-left: 4px solid #f59e0b; padding: 10px; margin: 10px 0; border-radius: 4px;"><p style="font-size: 0.85rem; margin: 0;">${item.admin_note}</p></div>` : ''}
           <p>Location: ${item.location}</p>
@@ -210,7 +212,7 @@ function renderItems(items) {
           ${isAdmin ? `<button onclick="window.deleteItem('${item.id}')" style="background: #ef4444; color: white; width: 100%; margin-top: 10px; border: none; padding: 8px; border-radius: 6px; cursor: pointer;">Delete Report</button>` : ''}
         </div>
       </div>`;
-  }).join("") : `<p>No items found.</p>`;
+  }).join("") : `<p style="text-align:center; grid-column: 1/-1;">No items found.</p>`;
 }
 
 // 6. ACTION HELPERS
@@ -225,7 +227,6 @@ window.notifyAdmin = async (itemId, itemTitle, actionType) => {
 
 // 7. ADMIN FUNCTIONS
 async function loadAdminDashboard() {
-  // Select all items to calculate stats correctly
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   const tableBody = document.getElementById("adminTableBody");
   
@@ -234,7 +235,7 @@ async function loadAdminDashboard() {
     const lost = items.filter(item => item.type.toLowerCase() === 'lost').length;
     const found = items.filter(item => item.type.toLowerCase() === 'found').length;
     
-    // NEW CALCULATION: Success Rate = (Resolved Items / Total Items) * 100
+    // Success Rate = (Resolved / Total) * 100
     const resolvedCount = items.filter(item => item.status === 'resolved').length;
     const successRate = total > 0 ? Math.round((resolvedCount / total) * 100) : 0;
 
@@ -252,11 +253,11 @@ async function loadAdminDashboard() {
               ${item.status.toUpperCase()}
             </span>
           </td>
-          <td><input type="text" id="note-${item.id}" value="${item.admin_note || ''}"></td>
+          <td><input type="text" id="note-${item.id}" value="${item.admin_note || ''}" style="width:100%;"></td>
           <td>${item.location}</td>
           <td>
-            <button onclick="window.approveItem('${item.id}')">Approve</button>
-            <button onclick="window.deleteItem('${item.id}')">Del</button>
+            <button onclick="window.approveItem('${item.id}')" style="background:#10b981; color:white; padding:5px 10px; border-radius:4px;">Approve</button>
+            <button onclick="window.deleteItem('${item.id}')" style="background:#ef4444; color:white; padding:5px 10px; border-radius:4px;">Del</button>
           </td>
         </tr>`).join("");
     }
@@ -272,8 +273,8 @@ async function loadNotifications() {
         <td>${n.user_email}</td>
         <td>${n.item_title}</td>
         <td>${n.action_type}</td>
-        <td><input type="text" id="reply-${n.id}"></td>
-        <td><button onclick="window.processActivity('${n.id}', '${n.item_id}', 'approved')">Confirm</button></td>
+        <td><input type="text" id="reply-${n.id}" style="width:100%;"></td>
+        <td><button onclick="window.processActivity('${n.id}', '${n.item_id}', 'approved')" style="background:#10b981; color:white; padding:5px 10px; border-radius:4px;">Confirm</button></td>
       </tr>`).join("");
   }
 }
@@ -284,11 +285,10 @@ window.approveItem = async (id) => {
   location.reload();
 };
 
-// UPDATED: Instead of deleting, we change status to "resolved"
 window.processActivity = async (notifId, itemId, decision) => {
     const comment = document.getElementById(`reply-${notifId}`).value;
     if (decision === 'approved') {
-        // Mark as resolved. This hides it from the Home Page filter but keeps it for the Success Rate
+        // Status "resolved" moves it off the home page but keeps it for the Success Rate
         await supabase.from("items").update({ status: 'resolved', admin_note: comment }).eq("id", itemId);
         alert("Success! Item confirmed and resolved.");
     } else {
