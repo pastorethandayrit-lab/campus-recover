@@ -99,12 +99,12 @@ async function setupPage(session, isAdmin) {
     if (countDisplay) countDisplay.innerText = count || 0;
   }
 
-  // HOME PAGE LOGIC
+  // HOME PAGE LOGIC (Filters out "resolved" items so they leave the home page)
   if (document.getElementById("itemsContainer")) {
     const { data: itemsWithProfiles } = await supabase
         .from("items")
         .select(`*, profiles(username)`)
-        .eq("status", "approved");
+        .eq("status", "approved"); // "resolved" items will naturally be hidden here
     
     allItems = itemsWithProfiles || [];
     renderItems(allItems);
@@ -114,9 +114,9 @@ async function setupPage(session, isAdmin) {
     const categoryFilter = document.getElementById("categoryFilter");
 
     const runFilters = () => {
-      const q = (searchInput?.value || "").toLowerCase();
-      const t = typeFilter?.value || "all";
-      const c = categoryFilter?.value || "all";
+      const q = searchInput.value.toLowerCase();
+      const t = typeFilter.value;
+      const c = categoryFilter.value;
 
       const filtered = allItems.filter(item => {
         const matchesSearch = item.title.toLowerCase().includes(q) || item.location.toLowerCase().includes(q);
@@ -148,7 +148,7 @@ async function setupPage(session, isAdmin) {
     });
   }
 
-  // UPLOAD LOGIC - Updated to save user_email
+  // UPLOAD LOGIC
   const upForm = document.getElementById("uploadForm");
   if (upForm) {
     upForm.addEventListener("submit", async (e) => {
@@ -168,7 +168,6 @@ async function setupPage(session, isAdmin) {
           date: upForm.querySelectorAll('input')[2].value,
           image_url: imageUrl,
           user_id: session.user.id,
-          user_email: session.user.email, // Saves email for admin view
           status: 'pending'
         }]);
 
@@ -211,7 +210,7 @@ function renderItems(items) {
           ${isAdmin ? `<button onclick="window.deleteItem('${item.id}')" style="background: #ef4444; color: white; width: 100%; margin-top: 10px; border: none; padding: 8px; border-radius: 6px; cursor: pointer;">Delete Report</button>` : ''}
         </div>
       </div>`;
-  }).join("") : `<p style="text-align:center; grid-column: 1/-1;">No approved items found.</p>`;
+  }).join("") : `<p>No items found.</p>`;
 }
 
 // 6. ACTION HELPERS
@@ -224,8 +223,9 @@ window.notifyAdmin = async (itemId, itemTitle, actionType) => {
   else alert("Admin notified!");
 };
 
-// 7. ADMIN FUNCTIONS - Updated to show Reporter and Date
+// 7. ADMIN FUNCTIONS
 async function loadAdminDashboard() {
+  // Select all items to calculate stats correctly
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   const tableBody = document.getElementById("adminTableBody");
   
@@ -233,6 +233,8 @@ async function loadAdminDashboard() {
     const total = items.length;
     const lost = items.filter(item => item.type.toLowerCase() === 'lost').length;
     const found = items.filter(item => item.type.toLowerCase() === 'found').length;
+    
+    // NEW CALCULATION: Success Rate = (Resolved Items / Total Items) * 100
     const resolvedCount = items.filter(item => item.status === 'resolved').length;
     const successRate = total > 0 ? Math.round((resolvedCount / total) * 100) : 0;
 
@@ -246,17 +248,15 @@ async function loadAdminDashboard() {
         <tr>
           <td>
             <strong>${item.title}</strong> 
-            <span style="font-size:0.65rem; padding:2px 4px; border-radius:3px; background:${item.status === 'pending' ? '#fef3c7' : (item.status === 'approved' ? '#dcfce7' : '#e2e8f0')};">
+            <span style="font-size:0.65rem; padding:2px 4px; border-radius:3px; background:${item.status === 'pending' ? '#fef3c7' : '#dcfce7'};">
               ${item.status.toUpperCase()}
             </span>
           </td>
-          <td style="font-size: 0.85rem;">${item.user_email || 'System'}</td>
-          <td>${new Date(item.date).toLocaleDateString()}</td>
-          <td><input type="text" id="note-${item.id}" value="${item.admin_note || ''}" style="width:100%; padding:4px;"></td>
+          <td><input type="text" id="note-${item.id}" value="${item.admin_note || ''}"></td>
           <td>${item.location}</td>
           <td>
-            <button onclick="window.approveItem('${item.id}')" style="background:#10b981; color:white; padding:4px 8px; border-radius:4px; font-size:0.8rem;">Approve</button>
-            <button onclick="window.deleteItem('${item.id}')" style="background:#ef4444; color:white; padding:4px 8px; border-radius:4px; font-size:0.8rem;">Del</button>
+            <button onclick="window.approveItem('${item.id}')">Approve</button>
+            <button onclick="window.deleteItem('${item.id}')">Del</button>
           </td>
         </tr>`).join("");
     }
@@ -269,12 +269,11 @@ async function loadNotifications() {
   if (table && notes) {
     table.innerHTML = notes.map(n => `
       <tr>
-        <td style="font-size: 0.85rem;">${n.user_email}</td>
-        <td>${new Date(n.created_at).toLocaleDateString()}</td>
+        <td>${n.user_email}</td>
         <td>${n.item_title}</td>
-        <td><span class="badge ${n.action_type === 'claim_request' ? 'lost' : 'found'}">${n.action_type.replace('_', ' ')}</span></td>
-        <td><input type="text" id="reply-${n.id}" placeholder="Reply..." style="width:100%; padding:4px;"></td>
-        <td><button onclick="window.processActivity('${n.id}', '${n.item_id}', 'approved')" style="background:#10b981; color:white; padding:4px 8px; border-radius:4px; font-size:0.8rem;">Confirm</button></td>
+        <td>${n.action_type}</td>
+        <td><input type="text" id="reply-${n.id}"></td>
+        <td><button onclick="window.processActivity('${n.id}', '${n.item_id}', 'approved')">Confirm</button></td>
       </tr>`).join("");
   }
 }
@@ -285,11 +284,15 @@ window.approveItem = async (id) => {
   location.reload();
 };
 
+// UPDATED: Instead of deleting, we change status to "resolved"
 window.processActivity = async (notifId, itemId, decision) => {
     const comment = document.getElementById(`reply-${notifId}`).value;
     if (decision === 'approved') {
+        // Mark as resolved. This hides it from the Home Page filter but keeps it for the Success Rate
         await supabase.from("items").update({ status: 'resolved', admin_note: comment }).eq("id", itemId);
         alert("Success! Item confirmed and resolved.");
+    } else {
+        await supabase.from("items").update({ admin_note: comment }).eq("id", itemId);
     }
     await supabase.from("notifications").delete().eq("id", notifId);
     location.reload();
