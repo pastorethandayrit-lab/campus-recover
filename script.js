@@ -71,7 +71,6 @@ function renderNavbar(session, isAdmin) {
 
 // 4. PAGE INITIALIZATION
 async function setupPage(session, isAdmin) {
-  // Auth Form Handlers
   const loginForm = document.getElementById("loginForm");
   if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
   const regForm = document.getElementById("registerForm");
@@ -85,6 +84,7 @@ async function setupPage(session, isAdmin) {
     const roleDisplay = document.getElementById("userRole");
     const nameDisplay = document.getElementById("displayUsername");
     const avatarText = document.getElementById("avatarText");
+    const countDisplay = document.getElementById("userReportCount");
 
     if (emailDisplay) emailDisplay.innerText = session.user.email;
     if (roleDisplay) roleDisplay.innerText = isAdmin ? "Administrator" : "User";
@@ -94,21 +94,21 @@ async function setupPage(session, isAdmin) {
         if (nameDisplay) nameDisplay.innerText = profile.username;
         if (avatarText) avatarText.innerText = profile.username.charAt(0).toUpperCase();
     }
+
+    const { count } = await supabase.from('items').select('*', { count: 'exact', head: true }).eq('user_id', session.user.id);
+    if (countDisplay) countDisplay.innerText = count || 0;
   }
 
   // HOME PAGE LOGIC
   if (document.getElementById("itemsContainer")) {
-    const { data: itemsData, error } = await supabase
+    const { data: itemsWithProfiles } = await supabase
         .from("items")
-        .select("*") 
+        .select(`*, profiles(username)`)
         .eq("status", "approved");
     
-    if (error) console.error("Fetch error:", error.message);
-
-    allItems = itemsData || [];
+    allItems = itemsWithProfiles || [];
     renderItems(allItems);
 
-    // Filters
     const searchInput = document.getElementById("searchInput");
     const typeFilter = document.getElementById("typeFilter");
     const categoryFilter = document.getElementById("categoryFilter");
@@ -140,7 +140,6 @@ async function setupPage(session, isAdmin) {
     loadNotifications(); 
   }
 
-  // LOGOUT
   const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) {
     logoutBtn.addEventListener("click", async () => {
@@ -149,7 +148,7 @@ async function setupPage(session, isAdmin) {
     });
   }
 
-  // UPLOAD LOGIC
+  // UPLOAD LOGIC - Updated to save user_email
   const upForm = document.getElementById("uploadForm");
   if (upForm) {
     upForm.addEventListener("submit", async (e) => {
@@ -169,6 +168,7 @@ async function setupPage(session, isAdmin) {
           date: upForm.querySelectorAll('input')[2].value,
           image_url: imageUrl,
           user_id: session.user.id,
+          user_email: session.user.email, // Saves email for admin view
           status: 'pending'
         }]);
 
@@ -191,14 +191,15 @@ function renderItems(items) {
   const isAdmin = document.querySelector('a[href="admin.html"]') !== null;
 
   container.innerHTML = items.length ? items.map(item => {
+    const reporter = item.profiles?.username || "Anonymous";
     const isLost = item.type.toLowerCase() === 'lost';
     
     return `
       <div class="card">
-        <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover;" onerror="this.src='https://via.placeholder.com/200'">
+        <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover;">
         <div style="padding: 1.5rem;">
           <span class="badge ${item.type}">${item.type.toUpperCase()}</span>
-          <p style="font-size: 0.75rem; color: #888; margin: 5px 0;">Date: ${new Date(item.date).toLocaleDateString()}</p>
+          <p style="font-size: 0.8rem; color: #666; margin: 5px 0;">Reporter: <strong>${reporter}</strong></p>
           <h3>${item.title}</h3>
           ${item.admin_note ? `<div style="background: #fff4e5; border-left: 4px solid #f59e0b; padding: 10px; margin: 10px 0; border-radius: 4px;"><p style="font-size: 0.85rem; margin: 0;">${item.admin_note}</p></div>` : ''}
           <p>Location: ${item.location}</p>
@@ -223,7 +224,7 @@ window.notifyAdmin = async (itemId, itemTitle, actionType) => {
   else alert("Admin notified!");
 };
 
-// 7. ADMIN FUNCTIONS
+// 7. ADMIN FUNCTIONS - Updated to show Reporter and Date
 async function loadAdminDashboard() {
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
   const tableBody = document.getElementById("adminTableBody");
@@ -249,6 +250,7 @@ async function loadAdminDashboard() {
               ${item.status.toUpperCase()}
             </span>
           </td>
+          <td style="font-size: 0.85rem;">${item.user_email || 'System'}</td>
           <td>${new Date(item.date).toLocaleDateString()}</td>
           <td><input type="text" id="note-${item.id}" value="${item.admin_note || ''}" style="width:100%; padding:4px;"></td>
           <td>${item.location}</td>
