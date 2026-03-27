@@ -18,14 +18,14 @@
     <section id="adminSection" style="display:none;" class="dashboard">
       <h2 style="margin-bottom: 20px;">Admin Dashboard</h2>
 
-      <div style="display: flex; gap: 15px; margin-bottom: 30px;">
-        <div style="flex:1; background:#2563eb; color:white; padding:20px; border-radius:12px; text-align:center;">
+      <div style="display: flex; gap: 15px; margin-bottom: 30px; flex-wrap: wrap;">
+        <div style="flex:1; min-width: 150px; background:#2563eb; color:white; padding:20px; border-radius:12px; text-align:center;">
           <small>Total Items</small><h2 id="adminTotal" style="margin:5px 0 0 0;">0</h2>
         </div>
-        <div style="flex:1; background:#ef4444; color:white; padding:20px; border-radius:12px; text-align:center;">
+        <div style="flex:1; min-width: 150px; background:#ef4444; color:white; padding:20px; border-radius:12px; text-align:center;">
           <small>Lost</small><h2 id="adminLost" style="margin:5px 0 0 0;">0</h2>
         </div>
-        <div style="flex:1; background:#10b981; color:white; padding:20px; border-radius:12px; text-align:center;">
+        <div style="flex:1; min-width: 150px; background:#10b981; color:white; padding:20px; border-radius:12px; text-align:center;">
           <small>Found</small><h2 id="adminFound" style="margin:5px 0 0 0;">0</h2>
         </div>
       </div>
@@ -39,7 +39,8 @@
             <thead>
               <tr style="background: #f1f5f9;">
                 <th style="padding: 12px 20px;">Item & Date</th>
-                <th style="padding: 12px 20px;">Current Note</th>
+                <th style="padding: 12px 20px;">Reporter</th>
+                <th style="padding: 12px 20px;">Admin Note</th>
                 <th style="padding: 12px 20px;">Location</th>
                 <th style="padding: 12px 20px;">Actions</th>
               </tr>

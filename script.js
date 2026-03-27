@@ -8,7 +8,6 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const cloudName = "daxarj70f"; 
 const uploadPreset = "unsigned_upload"; 
 
-// Global variable to hold our data for filtering
 let allItems = [];
 
 // 2. THE GATEKEEPER
@@ -79,7 +78,6 @@ async function setupPage(session, isAdmin) {
 
   if (!session) return;
 
-  // --- PROFILE PAGE LOGIC ---
   if (window.location.pathname.includes("profile.html")) {
     const emailDisplay = document.getElementById("userEmail");
     const roleDisplay = document.getElementById("userRole");
@@ -89,7 +87,6 @@ async function setupPage(session, isAdmin) {
     if (emailDisplay) emailDisplay.innerText = session.user.email;
     if (roleDisplay) roleDisplay.innerText = isAdmin ? "Administrator" : "User";
 
-    // Fetch Username for Profile
     const { data: profile } = await supabase.from('profiles').select('username').eq('id', session.user.id).single();
     if (profile?.username) {
         if (nameDisplay) nameDisplay.innerText = profile.username;
@@ -97,20 +94,15 @@ async function setupPage(session, isAdmin) {
     }
   }
 
-  // Home Page logic (Search & Filter)
   if (document.getElementById("itemsContainer")) {
     const { data } = await supabase.from("items").select("*").eq("status", "approved");
     allItems = data || [];
     renderItems(allItems);
 
-    const searchInput = document.getElementById("searchInput");
-    const typeFilter = document.getElementById("typeFilter");
-    const categoryFilter = document.getElementById("categoryFilter");
-
     const runFilters = () => {
-      const q = searchInput.value.toLowerCase();
-      const t = typeFilter.value;
-      const c = categoryFilter.value;
+      const q = document.getElementById("searchInput").value.toLowerCase();
+      const t = document.getElementById("typeFilter").value;
+      const c = document.getElementById("categoryFilter").value;
 
       const filtered = allItems.filter(item => {
         const matchesSearch = item.title.toLowerCase().includes(q) || item.location.toLowerCase().includes(q);
@@ -121,12 +113,12 @@ async function setupPage(session, isAdmin) {
       renderItems(filtered);
     };
 
-    if (searchInput) searchInput.addEventListener("input", runFilters);
-    if (typeFilter) typeFilter.addEventListener("change", runFilters);
-    if (categoryFilter) categoryFilter.addEventListener("change", runFilters);
+    ["searchInput", "typeFilter", "categoryFilter"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener(id === "searchInput" ? "input" : "change", runFilters);
+    });
   }
 
-  // Admin section
   if (window.location.pathname.includes("admin.html") && isAdmin) {
     const section = document.getElementById("adminSection");
     if (section) section.style.display = "block";
@@ -142,7 +134,6 @@ async function setupPage(session, isAdmin) {
     });
   }
 
-  // REPORT UPLOAD LOGIC
   const upForm = document.getElementById("uploadForm");
   if (upForm) {
     upForm.addEventListener("submit", async (e) => {
@@ -153,32 +144,24 @@ async function setupPage(session, isAdmin) {
         const file = upForm.querySelector('input[type="file"]').files[0];
         const imageUrl = await uploadImage(file);
         
-        const typeValue = upForm.querySelectorAll('select')[0].value;
-        const titleValue = upForm.querySelectorAll('input')[0].value;
-        const categoryValue = upForm.querySelectorAll('select')[1].value;
-        const descValue = upForm.querySelector('textarea').value;
-        const locValue = upForm.querySelectorAll('input')[1].value;
-        const dateValue = upForm.querySelectorAll('input')[2].value;
-
         const { error } = await supabase.from("items").insert([{ 
-          type: typeValue,
-          title: titleValue,
-          category: categoryValue,
-          description: descValue,
-          location: locValue,
-          date: dateValue,
+          type: upForm.querySelectorAll('select')[0].value,
+          title: upForm.querySelectorAll('input')[0].value,
+          category: upForm.querySelectorAll('select')[1].value,
+          description: upForm.querySelector('textarea').value,
+          location: upForm.querySelectorAll('input')[1].value,
+          date: upForm.querySelectorAll('input')[2].value,
           image_url: imageUrl,
           user_id: session.user.id,
           status: 'pending'
         }]);
 
         if (error) throw error;
-        alert("Reported! Please bring the item to the Admin Office for verification.");
+        alert("Reported! Please bring the item to the Admin Office.");
         window.location.href = "index.html";
       } catch (err) { 
         alert(err.message); 
-        btn.innerText = "Submit Report"; 
-        btn.disabled = false; 
+        btn.innerText = "Submit Report"; btn.disabled = false; 
       }
     });
   }
@@ -191,40 +174,25 @@ function renderItems(items) {
 
   container.innerHTML = items.length ? items.map(item => {
     const isLostItem = item.type.toLowerCase() === 'lost';
-    const buttonText = isLostItem ? "I Found It" : "Claim Item";
-    const actionType = isLostItem ? "found_report" : "claim_request";
-    const detailsId = `details-${item.id}`;
-    const formattedDate = new Date(item.date).toLocaleDateString();
-
     return `
       <div class="card">
         <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover;">
         <div style="padding: 1.5rem;">
           <span class="badge ${item.type}">${item.type.toUpperCase()}</span>
           <h3>${item.title}</h3>
-          <div style="background: #f0f7ff; padding: 10px; border-radius: 6px; border: 1px solid #cce3ff; margin: 10px 0;">
-            <p style="font-size: 0.9rem; color: #1e40af; margin: 0;">📍 <strong>Location:</strong> ${item.location}</p>
-            <p style="font-size: 0.8rem; color: #1e40af; margin-top: 4px;">📅 <strong>Date:</strong> ${formattedDate}</p>
-          </div>
-          <div id="${detailsId}" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc;">
-            <p style="font-size: 0.85rem; color: #444;"><strong>Description:</strong> ${item.description || "No description."}</p>
-            ${item.admin_note ? `<p style="font-size: 0.8rem; color: #ef4444; background: #fee2e2; padding: 5px; border-radius: 4px; margin-top: 5px;"><strong>Note:</strong> ${item.admin_note}</p>` : ''}
+          <p style="font-size: 0.9rem; color: #666;">📍 ${item.location} | 📅 ${new Date(item.date).toLocaleDateString()}</p>
+          <div id="details-${item.id}" style="display: none; margin-top: 10px;">
+            <p style="font-size: 0.85rem;">${item.description || "No description."}</p>
           </div>
           <div style="display: flex; gap: 5px; margin-top: 15px;">
-            <button onclick="window.toggleDetails('${detailsId}', this)" 
-                    style="flex: 1; padding: 10px; cursor: pointer; border-radius: 6px; border: 1px solid #ccc; background: #fff;">
-              Details
-            </button>
-            <button onclick="window.notifyAdmin('${item.id}', '${item.title}', '${actionType}')" 
-                    class="btn-approve" 
-                    style="flex: 2; background: ${isLostItem ? '#10b981' : ''}">
-              ${buttonText}
+            <button onclick="window.toggleDetails('details-${item.id}', this)" class="btn-details">Details</button>
+            <button onclick="window.notifyAdmin('${item.id}', '${item.title}', '${isLostItem ? 'found_report' : 'claim_request'}')" class="btn-approve">
+              ${isLostItem ? "I Found It" : "Claim Item"}
             </button>
           </div>
         </div>
-      </div>
-    `;
-  }).join("") : `<p style="grid-column: 1/-1; text-align: center; color: #666;">No items found matching your search.</p>`;
+      </div>`;
+  }).join("") : `<p>No items found.</p>`;
 }
 
 // 6. ACTION HELPERS
@@ -238,74 +206,36 @@ window.toggleDetails = (id, btn) => {
 window.notifyAdmin = async (itemId, itemTitle, actionType) => {
   const { data: { session } } = await supabase.auth.getSession();
   const { error } = await supabase.from('notifications').insert([{
-    item_id: itemId,
-    user_id: session.user.id,
-    user_email: session.user.email,
-    item_title: itemTitle,
-    action_type: actionType
+    item_id: itemId, user_id: session.user.id, user_email: session.user.email,
+    item_title: itemTitle, action_type: actionType
   }]);
-  if (error) alert("Error: " + error.message);
-  else alert(actionType === 'found_report' ? "Admin notified!" : "Claim request sent!");
-};
-
-window.saveUsername = async () => {
-    const newName = document.getElementById("usernameInput").value;
-    if (!newName) return alert("Please enter a name");
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const { error } = await supabase.from('profiles').update({ username: newName }).eq('id', session.user.id);
-
-    if (error) alert(error.message);
-    else {
-        const display = document.getElementById("displayUsername");
-        const avatar = document.getElementById("avatarText");
-        if (display) display.innerText = newName;
-        if (avatar) avatar.innerText = newName.charAt(0).toUpperCase();
-        alert("Username updated!");
-    }
+  alert(error ? error.message : "Admin notified!");
 };
 
 // 7. ADMIN FUNCTIONS
 async function loadAdminDashboard() {
-  const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
+  const { data: items } = await supabase
+    .from("items")
+    .select(`*, profiles(username)`)
+    .order("created_at", { ascending: false });
+    
   const tableBody = document.getElementById("adminTableBody");
-  
-  if (items) {
-    // --- UPDATE COUNTS ---
-    const total = items.length;
-    const lost = items.filter(item => item.type.toLowerCase() === 'lost').length;
-    const found = items.filter(item => item.type.toLowerCase() === 'found').length;
+  if (items && tableBody) {
+    document.getElementById("adminTotal").innerText = items.length;
+    document.getElementById("adminLost").innerText = items.filter(i => i.type === 'lost').length;
+    document.getElementById("adminFound").innerText = items.filter(i => i.type === 'found').length;
 
-    if (document.getElementById("adminTotal")) document.getElementById("adminTotal").innerText = total;
-    if (document.getElementById("adminLost")) document.getElementById("adminLost").innerText = lost;
-    if (document.getElementById("adminFound")) document.getElementById("adminFound").innerText = found;
-
-    // --- RENDER TABLE ---
-    if (tableBody) {
-      tableBody.innerHTML = items.map(item => {
-        const isPending = item.status === 'pending';
-        return `
-        <tr>
-          <td>
-            <strong>${item.title}</strong> 
-            <span style="font-size:0.65rem; padding:2px 4px; border-radius:3px; background:${isPending ? '#fef3c7':'#dcfce7'}; color:${isPending ? '#92400e':'#166534'};">
-              ${item.status.toUpperCase()}
-            </span>
-            <br><small style="color:gray;">${new Date(item.date).toLocaleDateString()}</small>
-          </td>
-          <td>
-            <input type="text" id="note-${item.id}" value="${item.admin_note || ''}" style="width: 100px;">
-          </td>
-          <td>
-             <input type="text" value="${item.location}" onchange="window.updateLocation('${item.id}', this.value)" style="width: 100px;">
-          </td>
-          <td>
-            <button onclick="window.approveItem('${item.id}')">Approve</button>
-            <button onclick="window.deleteItem('${item.id}')">Del</button>
-          </td>
-        </tr>`
-      }).join("");
-    }
+    tableBody.innerHTML = items.map(item => `
+      <tr>
+        <td><strong>${item.title}</strong><br><small>${new Date(item.date).toLocaleDateString()}</small></td>
+        <td><strong>${item.profiles?.username || "Unknown"}</strong></td>
+        <td><input type="text" id="note-${item.id}" value="${item.admin_note || ''}"></td>
+        <td><input type="text" value="${item.location}" onchange="window.updateLocation('${item.id}', this.value)"></td>
+        <td>
+          <button onclick="window.approveItem('${item.id}')">Approve</button>
+          <button onclick="window.deleteItem('${item.id}')" style="color:red">Del</button>
+        </td>
+      </tr>`).join("");
   }
 }
 
@@ -317,12 +247,29 @@ async function loadNotifications() {
       <tr>
         <td>${n.user_email}</td>
         <td>${n.item_title}</td>
-        <td>${n.action_type}</td>
-        <td><input type="text" id="reply-${n.id}"></td>
+        <td>${n.action_type.replace('_', ' ')}</td>
+        <td><input type="text" id="reply-${n.id}" placeholder="Note..."></td>
         <td><button onclick="window.processActivity('${n.id}', '${n.item_id}', 'approved')">Confirm</button></td>
       </tr>`).join("");
   }
 }
+
+window.processActivity = async (notifId, itemId, decision) => {
+    const comment = document.getElementById(`reply-${notifId}`).value;
+    if (decision === 'approved') {
+        const { data: notification } = await supabase.from("notifications").select("action_type").eq("id", notifId).single();
+        
+        if (notification.action_type === 'claim_request') {
+            await supabase.from("items").delete().eq("id", itemId);
+            alert("Claim confirmed! Item deleted.");
+        } else {
+            await supabase.from("items").update({ type: 'found', admin_note: comment }).eq("id", itemId);
+            alert("Report confirmed! Status updated to Found.");
+        }
+    }
+    await supabase.from("notifications").delete().eq("id", notifId);
+    location.reload();
+};
 
 window.approveItem = async (id) => {
   const note = document.getElementById(`note-${id}`).value;
@@ -330,24 +277,12 @@ window.approveItem = async (id) => {
   location.reload();
 };
 
-window.processActivity = async (notifId, itemId, decision) => {
-  const comment = document.getElementById(`reply-${notifId}`).value;
-  const updateData = { admin_note: comment };
-  if (decision === 'approved') updateData.status = 'approved';
-  await supabase.from("items").update(updateData).eq("id", itemId);
-  await supabase.from("notifications").delete().eq("id", notifId);
-  location.reload();
+window.deleteItem = async (id) => { 
+  if(confirm("Delete item?")) { await supabase.from("items").delete().eq("id", id); location.reload(); } 
 };
 
 window.updateLocation = async (id, newLoc) => {
   await supabase.from("items").update({ location: newLoc }).eq("id", id);
-};
-
-window.deleteItem = async (id) => { 
-  if(confirm("Delete item?")) { 
-    await supabase.from("items").delete().eq("id", id); 
-    location.reload(); 
-  } 
 };
 
 async function handleAuth(e, type) {
