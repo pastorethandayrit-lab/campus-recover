@@ -8,7 +8,6 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const cloudName = "daxarj70f"; 
 const uploadPreset = "unsigned_upload"; 
 
-// Global variable to hold our data for filtering
 let allItems = [];
 
 // 2. THE GATEKEEPER
@@ -79,28 +78,31 @@ async function setupPage(session, isAdmin) {
 
   if (!session) return;
 
-  // --- PROFILE PAGE LOGIC ---
+  // PROFILE PAGE LOGIC
   if (window.location.pathname.includes("profile.html")) {
     const emailDisplay = document.getElementById("userEmail");
     const roleDisplay = document.getElementById("userRole");
     const nameDisplay = document.getElementById("displayUsername");
     const avatarText = document.getElementById("avatarText");
+    const countDisplay = document.getElementById("userReportCount");
 
     if (emailDisplay) emailDisplay.innerText = session.user.email;
     if (roleDisplay) roleDisplay.innerText = isAdmin ? "Administrator" : "User";
 
-    // Fetch Username for Profile
     const { data: profile } = await supabase.from('profiles').select('username').eq('id', session.user.id).single();
     if (profile?.username) {
         if (nameDisplay) nameDisplay.innerText = profile.username;
         if (avatarText) avatarText.innerText = profile.username.charAt(0).toUpperCase();
     }
+
+    const { count } = await supabase.from('items').select('*', { count: 'exact', head: true }).eq('user_id', session.user.id);
+    if (countDisplay) countDisplay.innerText = count || 0;
   }
 
-  // Home Page logic (Search & Filter)
+  // HOME PAGE LOGIC
   if (document.getElementById("itemsContainer")) {
-    const { data } = await supabase.from("items").select("*").eq("status", "approved");
-    allItems = data || [];
+    const { data: itemsWithProfiles } = await supabase.from("items").select(`*, profiles(username)`).eq("status", "approved");
+    allItems = itemsWithProfiles || [];
     renderItems(allItems);
 
     const searchInput = document.getElementById("searchInput");
@@ -126,7 +128,7 @@ async function setupPage(session, isAdmin) {
     if (categoryFilter) categoryFilter.addEventListener("change", runFilters);
   }
 
-  // Admin section
+  // ADMIN SECTION
   if (window.location.pathname.includes("admin.html") && isAdmin) {
     const section = document.getElementById("adminSection");
     if (section) section.style.display = "block";
@@ -142,7 +144,7 @@ async function setupPage(session, isAdmin) {
     });
   }
 
-  // REPORT UPLOAD LOGIC
+  // UPLOAD LOGIC
   const upForm = document.getElementById("uploadForm");
   if (upForm) {
     upForm.addEventListener("submit", async (e) => {
@@ -153,116 +155,68 @@ async function setupPage(session, isAdmin) {
         const file = upForm.querySelector('input[type="file"]').files[0];
         const imageUrl = await uploadImage(file);
         
-        const typeValue = upForm.querySelectorAll('select')[0].value;
-        const titleValue = upForm.querySelectorAll('input')[0].value;
-        const categoryValue = upForm.querySelectorAll('select')[1].value;
-        const descValue = upForm.querySelector('textarea').value;
-        const locValue = upForm.querySelectorAll('input')[1].value;
-        const dateValue = upForm.querySelectorAll('input')[2].value;
-
         const { error } = await supabase.from("items").insert([{ 
-          type: typeValue,
-          title: titleValue,
-          category: categoryValue,
-          description: descValue,
-          location: locValue,
-          date: dateValue,
+          type: upForm.querySelectorAll('select')[0].value,
+          title: upForm.querySelectorAll('input')[0].value,
+          category: upForm.querySelectorAll('select')[1].value,
+          description: upForm.querySelector('textarea').value,
+          location: upForm.querySelectorAll('input')[1].value,
+          date: upForm.querySelectorAll('input')[2].value,
           image_url: imageUrl,
           user_id: session.user.id,
           status: 'pending'
         }]);
 
         if (error) throw error;
-        alert("Reported! Please bring the item to the Admin Office for verification.");
+        alert("Reported! Please bring the item to the Admin Office.");
         window.location.href = "index.html";
       } catch (err) { 
         alert(err.message); 
-        btn.innerText = "Submit Report"; 
-        btn.disabled = false; 
+        btn.innerText = "Submit Report"; btn.disabled = false; 
       }
     });
   }
 }
 
 // 5. ITEM RENDERING
-function renderItems(items) {
+window.renderItems = (items) => {
   const container = document.getElementById("itemsContainer");
   if (!container) return;
 
-  container.innerHTML = items.length ? items.map(item => {
-    const isLostItem = item.type.toLowerCase() === 'lost';
-    const buttonText = isLostItem ? "I Found It" : "Claim Item";
-    const actionType = isLostItem ? "found_report" : "claim_request";
-    const detailsId = `details-${item.id}`;
-    const formattedDate = new Date(item.date).toLocaleDateString();
+  const isAdmin = document.querySelector('a[href="admin.html"]') !== null;
 
+  container.innerHTML = items.length ? items.map(item => {
+    const reporter = item.profiles?.username || "Anonymous";
+    const isLost = item.type.toLowerCase() === 'lost';
+    
     return `
       <div class="card">
         <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover;">
         <div style="padding: 1.5rem;">
           <span class="badge ${item.type}">${item.type.toUpperCase()}</span>
+          <p style="font-size: 0.8rem; color: #666; margin: 5px 0;">Reporter: <strong>${reporter}</strong></p>
           <h3>${item.title}</h3>
-          <div style="background: #f0f7ff; padding: 10px; border-radius: 6px; border: 1px solid #cce3ff; margin: 10px 0;">
-            <p style="font-size: 0.9rem; color: #1e40af; margin: 0;">📍 <strong>Location:</strong> ${item.location}</p>
-            <p style="font-size: 0.8rem; color: #1e40af; margin-top: 4px;">📅 <strong>Date:</strong> ${formattedDate}</p>
-          </div>
-          <div id="${detailsId}" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ccc;">
-            <p style="font-size: 0.85rem; color: #444;"><strong>Description:</strong> ${item.description || "No description."}</p>
-            ${item.admin_note ? `<p style="font-size: 0.8rem; color: #ef4444; background: #fee2e2; padding: 5px; border-radius: 4px; margin-top: 5px;"><strong>Note:</strong> ${item.admin_note}</p>` : ''}
-          </div>
+          ${item.admin_note ? `<div style="background: #fff4e5; border-left: 4px solid #f59e0b; padding: 10px; margin: 10px 0; border-radius: 4px;"><p style="font-size: 0.85rem; margin: 0;">${item.admin_note}</p></div>` : ''}
+          <p>Location: ${item.location}</p>
           <div style="display: flex; gap: 5px; margin-top: 15px;">
-            <button onclick="window.toggleDetails('${detailsId}', this)" 
-                    style="flex: 1; padding: 10px; cursor: pointer; border-radius: 6px; border: 1px solid #ccc; background: #fff;">
-              Details
-            </button>
-            <button onclick="window.notifyAdmin('${item.id}', '${item.title}', '${actionType}')" 
-                    class="btn-approve" 
-                    style="flex: 2; background: ${isLostItem ? '#10b981' : ''}">
-              ${buttonText}
+            <button onclick="window.notifyAdmin('${item.id}', '${item.title}', '${isLost ? 'found_report' : 'claim_request'}')" class="btn-approve" style="flex:1;">
+              ${isLost ? "I Found It" : "Claim Item"}
             </button>
           </div>
+          ${isAdmin ? `<button onclick="window.deleteItem('${item.id}')" style="background: #ef4444; color: white; width: 100%; margin-top: 10px; border: none; padding: 8px; border-radius: 6px; cursor: pointer;">Delete Report</button>` : ''}
         </div>
-      </div>
-    `;
-  }).join("") : `<p style="grid-column: 1/-1; text-align: center; color: #666;">No items found matching your search.</p>`;
-}
-
-// 6. ACTION HELPERS
-window.toggleDetails = (id, btn) => {
-  const el = document.getElementById(id);
-  const isHidden = el.style.display === "none";
-  el.style.display = isHidden ? "block" : "none";
-  btn.innerText = isHidden ? "Hide" : "Details";
+      </div>`;
+  }).join("") : `<p>No items found.</p>`;
 };
 
+// 6. ACTION HELPERS
 window.notifyAdmin = async (itemId, itemTitle, actionType) => {
   const { data: { session } } = await supabase.auth.getSession();
   const { error } = await supabase.from('notifications').insert([{
-    item_id: itemId,
-    user_id: session.user.id,
-    user_email: session.user.email,
-    item_title: itemTitle,
-    action_type: actionType
+    item_id: itemId, user_id: session.user.id, user_email: session.user.email, item_title: itemTitle, action_type: actionType
   }]);
-  if (error) alert("Error: " + error.message);
-  else alert(actionType === 'found_report' ? "Admin notified!" : "Claim request sent!");
-};
-
-window.saveUsername = async () => {
-    const newName = document.getElementById("usernameInput").value;
-    if (!newName) return alert("Please enter a name");
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const { error } = await supabase.from('profiles').update({ username: newName }).eq('id', session.user.id);
-
-    if (error) alert(error.message);
-    else {
-        const display = document.getElementById("displayUsername");
-        const avatar = document.getElementById("avatarText");
-        if (display) display.innerText = newName;
-        if (avatar) avatar.innerText = newName.charAt(0).toUpperCase();
-        alert("Username updated!");
-    }
+  if (error) alert(error.message);
+  else alert("Admin notified!");
 };
 
 // 7. ADMIN FUNCTIONS
@@ -271,40 +225,29 @@ async function loadAdminDashboard() {
   const tableBody = document.getElementById("adminTableBody");
   
   if (items) {
-    // --- UPDATE COUNTS ---
     const total = items.length;
     const lost = items.filter(item => item.type.toLowerCase() === 'lost').length;
     const found = items.filter(item => item.type.toLowerCase() === 'found').length;
+    
+    // Logic for Success Rate: (Found Items / Total) * 100
+    const successRate = total > 0 ? Math.round((found / total) * 100) : 0;
 
     if (document.getElementById("adminTotal")) document.getElementById("adminTotal").innerText = total;
     if (document.getElementById("adminLost")) document.getElementById("adminLost").innerText = lost;
     if (document.getElementById("adminFound")) document.getElementById("adminFound").innerText = found;
+    if (document.getElementById("adminSuccessRate")) document.getElementById("adminSuccessRate").innerText = successRate + "%";
 
-    // --- RENDER TABLE ---
     if (tableBody) {
-      tableBody.innerHTML = items.map(item => {
-        const isPending = item.status === 'pending';
-        return `
+      tableBody.innerHTML = items.map(item => `
         <tr>
-          <td>
-            <strong>${item.title}</strong> 
-            <span style="font-size:0.65rem; padding:2px 4px; border-radius:3px; background:${isPending ? '#fef3c7':'#dcfce7'}; color:${isPending ? '#92400e':'#166534'};">
-              ${item.status.toUpperCase()}
-            </span>
-            <br><small style="color:gray;">${new Date(item.date).toLocaleDateString()}</small>
-          </td>
-          <td>
-            <input type="text" id="note-${item.id}" value="${item.admin_note || ''}" style="width: 100px;">
-          </td>
-          <td>
-             <input type="text" value="${item.location}" onchange="window.updateLocation('${item.id}', this.value)" style="width: 100px;">
-          </td>
+          <td><strong>${item.title}</strong></td>
+          <td><input type="text" id="note-${item.id}" value="${item.admin_note || ''}"></td>
+          <td>${item.location}</td>
           <td>
             <button onclick="window.approveItem('${item.id}')">Approve</button>
             <button onclick="window.deleteItem('${item.id}')">Del</button>
           </td>
-        </tr>`
-      }).join("");
+        </tr>`).join("");
     }
   }
 }
@@ -330,17 +273,17 @@ window.approveItem = async (id) => {
   location.reload();
 };
 
+// Consolidated processActivity: Deletes item on confirmation so it leaves the Home Page
 window.processActivity = async (notifId, itemId, decision) => {
-  const comment = document.getElementById(`reply-${notifId}`).value;
-  const updateData = { admin_note: comment };
-  if (decision === 'approved') updateData.status = 'approved';
-  await supabase.from("items").update(updateData).eq("id", itemId);
-  await supabase.from("notifications").delete().eq("id", notifId);
-  location.reload();
-};
-
-window.updateLocation = async (id, newLoc) => {
-  await supabase.from("items").update({ location: newLoc }).eq("id", id);
+    const comment = document.getElementById(`reply-${notifId}`).value;
+    if (decision === 'approved') {
+        await supabase.from("items").delete().eq("id", itemId);
+        alert("Success! Item confirmed and removed.");
+    } else {
+        await supabase.from("items").update({ admin_note: comment }).eq("id", itemId);
+    }
+    await supabase.from("notifications").delete().eq("id", notifId);
+    location.reload();
 };
 
 window.deleteItem = async (id) => { 
@@ -367,101 +310,3 @@ async function uploadImage(file) {
   const data = await res.json();
   return data.secure_url;
 }
-
-/* --- NEW FEATURES: REPORTER INFO, AUTO-DELETE, PROFILE STATS, & ADMIN ACTIONS --- */
-
-// 1. Update the Home Page to show Reporter Name
-const originalSetupPage = window.onload; // Store existing if needed, or just add to DOMContentLoaded
-document.addEventListener("DOMContentLoaded", async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    // Check if we are on the Home Page to fetch names
-    if (document.getElementById("itemsContainer")) {
-        const { data: itemsWithProfiles } = await supabase
-            .from("items")
-            .select(`*, profiles(username)`)
-            .eq("status", "approved");
-        
-        if (itemsWithProfiles) {
-            allItems = itemsWithProfiles;
-            renderItems(allItems);
-        }
-    }
-
-    // Check if we are on Profile Page to show Report Count
-    if (window.location.pathname.includes("profile.html")) {
-        const { count } = await supabase
-            .from('items')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', session.user.id);
-        
-        const countDisplay = document.getElementById("userReportCount");
-        if (countDisplay) countDisplay.innerText = count || 0;
-    }
-});
-
-// 2. Modified renderItems to include Reporter Name, Admin Note, and Admin Delete Button
-window.renderItems = (items) => {
-    const container = document.getElementById("itemsContainer");
-    if (!container) return;
-
-    // Check if current user is admin for the delete button
-    const isAdmin = document.querySelector('a[href="admin.html"]') !== null;
-
-    container.innerHTML = items.length ? items.map(item => {
-        const reporter = item.profiles?.username || "Anonymous";
-        const adminActionBtn = isAdmin ? `
-            <button onclick="window.deleteItem('${item.id}')" 
-                    style="background: #ef4444; color: white; width: 100%; margin-top: 10px; border: none; padding: 8px; border-radius: 6px; cursor: pointer;">
-                Admin: Delete Report
-            </button>` : '';
-
-        return `
-            <div class="card">
-                <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover;">
-                <div style="padding: 1.5rem;">
-                    <span class="badge ${item.type}">${item.type.toUpperCase()}</span>
-                    <p style="font-size: 0.8rem; color: #666; margin: 5px 0;">👤 Reporter: <strong>${reporter}</strong></p>
-                    <h3>${item.title}</h3>
-                    
-                    ${item.admin_note ? `
-                        <div style="background: #fff4e5; border-left: 4px solid #f59e0b; padding: 10px; margin: 10px 0; border-radius: 4px;">
-                            <small style="color: #92400e; font-weight: bold;">Notification:</small>
-                            <p style="font-size: 0.85rem; margin: 0;">${item.admin_note}</p>
-                        </div>` : ''}
-
-                    <p>📍 ${item.location}</p>
-                    <div style="display: flex; gap: 5px; margin-top: 15px;">
-                        <button onclick="window.notifyAdmin('${item.id}', '${item.title}', '${item.type === 'lost' ? 'found_report' : 'claim_request'}')" class="btn-approve" style="flex:1;">
-                            ${item.type === 'lost' ? "I Found It" : "Claim Item"}
-                        </button>
-                    </div>
-                    ${adminActionBtn}
-                </div>
-            </div>
-        `;
-    }).join("") : `<p>No items found.</p>`;
-};
-
-// 3. Update processActivity to AUTO-DELETE item when admin confirms
-window.processActivity = async (notifId, itemId, decision) => {
-    const comment = document.getElementById(`reply-${notifId}`).value;
-
-    if (decision === 'approved') {
-        // Automatically delete the item because it is now "Resolved/Found"
-        const { error: deleteError } = await supabase.from("items").delete().eq("id", itemId);
-        if (deleteError) {
-            alert("Error removing item: " + deleteError.message);
-            return;
-        }
-        alert("Success! Item confirmed and removed from public listings.");
-    } else {
-        // If rejected, just update the note so the user knows why
-        await supabase.from("items").update({ admin_note: comment }).eq("id", itemId);
-    }
-
-    // Always delete the notification after processing
-    await supabase.from("notifications").delete().eq("id", notifId);
-    location.reload();
-};
