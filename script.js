@@ -71,6 +71,7 @@ function renderNavbar(session, isAdmin) {
 
 // 4. PAGE INITIALIZATION
 async function setupPage(session, isAdmin) {
+  // Auth Form Handlers
   const loginForm = document.getElementById("loginForm");
   if (loginForm) loginForm.addEventListener("submit", (e) => handleAuth(e, 'login'));
   const regForm = document.getElementById("registerForm");
@@ -95,21 +96,19 @@ async function setupPage(session, isAdmin) {
     }
   }
 
-  // HOME PAGE LOGIC (Fixed for visibility)
+  // HOME PAGE LOGIC
   if (document.getElementById("itemsContainer")) {
-    // Simplified query to ensure items show up even if profiles aren't linked correctly
     const { data: itemsData, error } = await supabase
         .from("items")
         .select("*") 
         .eq("status", "approved");
     
-    if (error) {
-        console.error("Fetch error:", error.message);
-    }
+    if (error) console.error("Fetch error:", error.message);
 
     allItems = itemsData || [];
     renderItems(allItems);
 
+    // Filters
     const searchInput = document.getElementById("searchInput");
     const typeFilter = document.getElementById("typeFilter");
     const categoryFilter = document.getElementById("categoryFilter");
@@ -141,6 +140,7 @@ async function setupPage(session, isAdmin) {
     loadNotifications(); 
   }
 
+  // LOGOUT
   const logoutBtn = document.getElementById("logoutBtn");
   if (logoutBtn) {
     logoutBtn.addEventListener("click", async () => {
@@ -191,8 +191,6 @@ function renderItems(items) {
   const isAdmin = document.querySelector('a[href="admin.html"]') !== null;
 
   container.innerHTML = items.length ? items.map(item => {
-    // Fallback logic if profile username isn't present
-    const reporter = item.user_id ? "Campus User" : "Anonymous";
     const isLost = item.type.toLowerCase() === 'lost';
     
     return `
@@ -200,7 +198,7 @@ function renderItems(items) {
         <img src="${item.image_url}" style="width:100%; height:200px; object-fit:cover;" onerror="this.src='https://via.placeholder.com/200'">
         <div style="padding: 1.5rem;">
           <span class="badge ${item.type}">${item.type.toUpperCase()}</span>
-          <p style="font-size: 0.8rem; color: #666; margin: 5px 0;">Status: <strong>${item.status}</strong></p>
+          <p style="font-size: 0.75rem; color: #888; margin: 5px 0;">Date: ${new Date(item.date).toLocaleDateString()}</p>
           <h3>${item.title}</h3>
           ${item.admin_note ? `<div style="background: #fff4e5; border-left: 4px solid #f59e0b; padding: 10px; margin: 10px 0; border-radius: 4px;"><p style="font-size: 0.85rem; margin: 0;">${item.admin_note}</p></div>` : ''}
           <p>Location: ${item.location}</p>
@@ -212,7 +210,7 @@ function renderItems(items) {
           ${isAdmin ? `<button onclick="window.deleteItem('${item.id}')" style="background: #ef4444; color: white; width: 100%; margin-top: 10px; border: none; padding: 8px; border-radius: 6px; cursor: pointer;">Delete Report</button>` : ''}
         </div>
       </div>`;
-  }).join("") : `<p style="text-align:center; grid-column: 1/-1;">No items found.</p>`;
+  }).join("") : `<p style="text-align:center; grid-column: 1/-1;">No approved items found.</p>`;
 }
 
 // 6. ACTION HELPERS
@@ -234,8 +232,6 @@ async function loadAdminDashboard() {
     const total = items.length;
     const lost = items.filter(item => item.type.toLowerCase() === 'lost').length;
     const found = items.filter(item => item.type.toLowerCase() === 'found').length;
-    
-    // Success Rate = (Resolved / Total) * 100
     const resolvedCount = items.filter(item => item.status === 'resolved').length;
     const successRate = total > 0 ? Math.round((resolvedCount / total) * 100) : 0;
 
@@ -249,15 +245,16 @@ async function loadAdminDashboard() {
         <tr>
           <td>
             <strong>${item.title}</strong> 
-            <span style="font-size:0.65rem; padding:2px 4px; border-radius:3px; background:${item.status === 'pending' ? '#fef3c7' : '#dcfce7'};">
+            <span style="font-size:0.65rem; padding:2px 4px; border-radius:3px; background:${item.status === 'pending' ? '#fef3c7' : (item.status === 'approved' ? '#dcfce7' : '#e2e8f0')};">
               ${item.status.toUpperCase()}
             </span>
           </td>
-          <td><input type="text" id="note-${item.id}" value="${item.admin_note || ''}" style="width:100%;"></td>
+          <td>${new Date(item.date).toLocaleDateString()}</td>
+          <td><input type="text" id="note-${item.id}" value="${item.admin_note || ''}" style="width:100%; padding:4px;"></td>
           <td>${item.location}</td>
           <td>
-            <button onclick="window.approveItem('${item.id}')" style="background:#10b981; color:white; padding:5px 10px; border-radius:4px;">Approve</button>
-            <button onclick="window.deleteItem('${item.id}')" style="background:#ef4444; color:white; padding:5px 10px; border-radius:4px;">Del</button>
+            <button onclick="window.approveItem('${item.id}')" style="background:#10b981; color:white; padding:4px 8px; border-radius:4px; font-size:0.8rem;">Approve</button>
+            <button onclick="window.deleteItem('${item.id}')" style="background:#ef4444; color:white; padding:4px 8px; border-radius:4px; font-size:0.8rem;">Del</button>
           </td>
         </tr>`).join("");
     }
@@ -270,11 +267,12 @@ async function loadNotifications() {
   if (table && notes) {
     table.innerHTML = notes.map(n => `
       <tr>
-        <td>${n.user_email}</td>
+        <td style="font-size: 0.85rem;">${n.user_email}</td>
+        <td>${new Date(n.created_at).toLocaleDateString()}</td>
         <td>${n.item_title}</td>
-        <td>${n.action_type}</td>
-        <td><input type="text" id="reply-${n.id}" style="width:100%;"></td>
-        <td><button onclick="window.processActivity('${n.id}', '${n.item_id}', 'approved')" style="background:#10b981; color:white; padding:5px 10px; border-radius:4px;">Confirm</button></td>
+        <td><span class="badge ${n.action_type === 'claim_request' ? 'lost' : 'found'}">${n.action_type.replace('_', ' ')}</span></td>
+        <td><input type="text" id="reply-${n.id}" placeholder="Reply..." style="width:100%; padding:4px;"></td>
+        <td><button onclick="window.processActivity('${n.id}', '${n.item_id}', 'approved')" style="background:#10b981; color:white; padding:4px 8px; border-radius:4px; font-size:0.8rem;">Confirm</button></td>
       </tr>`).join("");
   }
 }
@@ -288,11 +286,8 @@ window.approveItem = async (id) => {
 window.processActivity = async (notifId, itemId, decision) => {
     const comment = document.getElementById(`reply-${notifId}`).value;
     if (decision === 'approved') {
-        // Status "resolved" moves it off the home page but keeps it for the Success Rate
         await supabase.from("items").update({ status: 'resolved', admin_note: comment }).eq("id", itemId);
         alert("Success! Item confirmed and resolved.");
-    } else {
-        await supabase.from("items").update({ admin_note: comment }).eq("id", itemId);
     }
     await supabase.from("notifications").delete().eq("id", notifId);
     location.reload();
