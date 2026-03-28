@@ -213,7 +213,27 @@ function renderItems(items) {
   }).join("") : `<p style="text-align:center; grid-column: 1/-1;">No approved items found.</p>`;
 }
 
-// 6. ACTION HELPERS
+// 6. ACTION HELPERS (Global)
+window.saveUsername = async () => {
+  const newName = document.getElementById("usernameInput").value;
+  if (!newName) return alert("Please enter a name.");
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ username: newName })
+    .eq('id', session.user.id);
+
+  if (error) {
+    alert("Error updating name: " + error.message);
+  } else {
+    alert("Username updated!");
+    location.reload();
+  }
+};
+
 window.notifyAdmin = async (itemId, itemTitle, actionType) => {
   const { data: { session } } = await supabase.auth.getSession();
   const { error } = await supabase.from('notifications').insert([{
