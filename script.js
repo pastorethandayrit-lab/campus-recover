@@ -246,6 +246,8 @@ window.notifyAdmin = async (itemId, itemTitle, actionType) => {
 // 7. ADMIN FUNCTIONS
 async function loadAdminDashboard() {
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
+  const { data: profiles } = await supabase.from("profiles").select("id, username");
+
   const tableBody = document.getElementById("adminTableBody");
   
   if (items) {
@@ -261,39 +263,59 @@ async function loadAdminDashboard() {
     if (document.getElementById("adminSuccessRate")) document.getElementById("adminSuccessRate").innerText = successRate + "%";
 
     if (tableBody) {
-      tableBody.innerHTML = items.map(item => `
+      tableBody.innerHTML = items.map(item => {
+        const uploader = profiles?.find(p => p.id === item.user_id)?.username || 'Unknown User';
+        
+        return `
         <tr>
+          <td><img src="${item.image_url}" style="width:60px; height:60px; object-fit:cover; border-radius:6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onerror="this.src='https://via.placeholder.com/60'"></td>
           <td>
-            <strong>${item.title}</strong> 
+            <strong>${item.title}</strong><br>
             <span style="font-size:0.65rem; padding:2px 4px; border-radius:3px; background:${item.status === 'pending' ? '#fef3c7' : (item.status === 'approved' ? '#dcfce7' : '#e2e8f0')};">
               ${item.status.toUpperCase()}
             </span>
           </td>
+          <td style="font-size: 0.85rem; color: #475569; font-weight: 500;">${uploader}</td>
           <td>${new Date(item.date).toLocaleDateString()}</td>
-          <td><input type="text" id="note-${item.id}" value="${item.admin_note || ''}" style="width:100%; padding:4px;"></td>
+          <td><input type="text" id="note-${item.id}" value="${item.admin_note || ''}" style="width:100%; padding:6px; border: 1px solid #ddd; border-radius: 4px;"></td>
           <td>${item.location}</td>
           <td>
-            <button onclick="window.approveItem('${item.id}')" style="background:#10b981; color:white; padding:4px 8px; border-radius:4px; font-size:0.8rem;">Approve</button>
-            <button onclick="window.deleteItem('${item.id}')" style="background:#ef4444; color:white; padding:4px 8px; border-radius:4px; font-size:0.8rem;">Del</button>
+            <div style="display: flex; gap: 5px;">
+              <button onclick="window.approveItem('${item.id}')" style="background:#10b981; color:white; padding:6px 10px; border-radius:4px; font-size:0.8rem; border:none; cursor:pointer;">Approve</button>
+              <button onclick="window.deleteItem('${item.id}')" style="background:#ef4444; color:white; padding:6px 10px; border-radius:4px; font-size:0.8rem; border:none; cursor:pointer;">Del</button>
+            </div>
           </td>
-        </tr>`).join("");
+        </tr>`;
+      }).join("");
     }
   }
 }
 
 async function loadNotifications() {
   const { data: notes } = await supabase.from("notifications").select("*").order("created_at", { ascending: false });
+  const { data: items } = await supabase.from("items").select("id, image_url");
+
   const table = document.getElementById("notifyTableBody");
   if (table && notes) {
-    table.innerHTML = notes.map(n => `
+    table.innerHTML = notes.map(n => {
+      const itemImg = items?.find(i => i.id === n.item_id)?.image_url || 'https://via.placeholder.com/50';
+      
+      return `
       <tr>
+        <td><img src="${itemImg}" style="width:50px; height:50px; object-fit:cover; border-radius:6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onerror="this.src='https://via.placeholder.com/50'"></td>
         <td style="font-size: 0.85rem;">${n.user_email}</td>
         <td>${new Date(n.created_at).toLocaleDateString()}</td>
-        <td>${n.item_title}</td>
+        <td><strong>${n.item_title}</strong></td>
         <td><span class="badge ${n.action_type === 'claim_request' ? 'lost' : 'found'}">${n.action_type.replace('_', ' ')}</span></td>
-        <td><input type="text" id="reply-${n.id}" placeholder="Reply..." style="width:100%; padding:4px;"></td>
-        <td><button onclick="window.processActivity('${n.id}', '${n.item_id}', 'approved')" style="background:#10b981; color:white; padding:4px 8px; border-radius:4px; font-size:0.8rem;">Confirm</button></td>
-      </tr>`).join("");
+        <td><input type="text" id="reply-${n.id}" placeholder="Reply..." style="width:100%; padding:6px; border: 1px solid #ddd; border-radius: 4px;"></td>
+        <td>
+          <div style="display: flex; gap: 5px;">
+            <button onclick="window.processActivity('${n.id}', '${n.item_id}', 'approved')" style="background:#10b981; color:white; padding:6px 10px; border-radius:4px; font-size:0.8rem; border:none; cursor:pointer;">Confirm</button>
+            <button onclick="window.declineActivity('${n.id}')" style="background:#ef4444; color:white; padding:6px 10px; border-radius:4px; font-size:0.8rem; border:none; cursor:pointer;">Decline</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join("");
   }
 }
 
@@ -311,6 +333,13 @@ window.processActivity = async (notifId, itemId, decision) => {
     }
     await supabase.from("notifications").delete().eq("id", notifId);
     location.reload();
+};
+
+window.declineActivity = async (notifId) => {
+    if(confirm("Are you sure you want to decline this request?")) {
+        await supabase.from("notifications").delete().eq("id", notifId);
+        location.reload();
+    }
 };
 
 window.deleteItem = async (id) => { 
