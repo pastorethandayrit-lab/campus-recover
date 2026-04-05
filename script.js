@@ -246,7 +246,7 @@ window.notifyAdmin = async (itemId, itemTitle, actionType) => {
 // 7. ADMIN FUNCTIONS
 async function loadAdminDashboard() {
   const { data: items } = await supabase.from("items").select("*").order("created_at", { ascending: false });
-  const { data: profiles } = await supabase.from("profiles").select("id, username");
+  const { data: profiles } = await supabase.from("profiles").select("*"); // Select all available profile data
 
   const tableBody = document.getElementById("adminTableBody");
   
@@ -264,7 +264,9 @@ async function loadAdminDashboard() {
 
     if (tableBody) {
       tableBody.innerHTML = items.map(item => {
-        const uploader = profiles?.find(p => p.id === item.user_id)?.username || 'Unknown User';
+        // Fallback logic: check for username, then email, then unknown
+        const userProfile = profiles?.find(p => p.id === item.user_id);
+        const uploader = userProfile?.username || userProfile?.email || 'Unknown User';
         
         return `
         <tr>
